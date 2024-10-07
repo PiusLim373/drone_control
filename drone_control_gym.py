@@ -80,11 +80,8 @@ class DroneControlGym(gym.Env):
         # Calculate the vector difference between goal and current position
         vector_to_goal = np.array(self.goal_pose) - np.array(self.drone_pose)
     
-        # Normalize the vector to get the unit vector [dx, dy, dz]
-        if self.distance_to_goal > 0:
-            dx, dy, dz = vector_to_goal / self.distance_to_goal  # Normalize vector
-        else:
-            dx, dy, dz = 0, 0, 0  # No direction if already at the goal
+        # Get the absolute distances in x, y, and z directions 
+        dx, dy, dz = np.abs(vector_to_goal)
     
         # Return the unit vector components [dx, dy, dz] and the distance to goal
         return [dx, dy, dz, self.distance_to_goal]
@@ -120,9 +117,9 @@ class DroneControlGym(gym.Env):
         # Reset the simulation state to the initial configuration
         mujoco.mj_resetData(self.model, self.drone)
         
-        # Reset drone position and orientation manually (teleporting)
-        self.drone.qpos[:3] = np.array([0.0, 0.0, 0.1])  # Set (x, y, z) position
-        self.drone.qpos[3:7] = np.array([1.0, 0.0, 0.0, 0.0])  # Set quaternion (w, x, y, z) for orientation
+        # # Reset drone position and orientation manually (redundant for now)
+        # self.drone.qpos[:3] = np.array([0.0, 0.0, 0.1])  # Set (x, y, z) position
+        # self.drone.qpos[3:7] = np.array([1.0, 0.0, 0.0, 0.0])  # Set quaternion (w, x, y, z) for orientation
 
         # Reset motor states
         self.motor_states = [
