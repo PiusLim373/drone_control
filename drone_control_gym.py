@@ -81,7 +81,7 @@ class DroneControlGym(gym.Env):
         vector_to_goal = np.array(self.goal_pose) - np.array(self.drone_pose)
     
         # Get the absolute distances in x, y, and z directions 
-        dx, dy, dz = np.abs(vector_to_goal)
+        dx, dy, dz = vector_to_goal
     
         # Return the unit vector components [dx, dy, dz] and the distance to goal
         return [dx, dy, dz, self.distance_to_goal]
