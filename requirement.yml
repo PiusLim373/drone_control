@@ -1,0 +1,12 @@
+name: me5418-drone-control
+channels:
+  - defaults
+dependencies:
+  - python=3.8
+  - pip:
+    - gym
+    - mujoco
+    - mujoco-python-viewer
+    - icecream
+    - numpy
+    - scipy
