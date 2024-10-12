@@ -198,8 +198,8 @@ class DroneControlGym(gym.Env):
         [0] * RESOLUTION,
         ]
         # Reset IMU readings
-        self.imu_acc_data = []  #1111
-        self.imu_gyro_data = []  #2222
+        self.imu_acc_data = []  
+        self.imu_gyro_data = []  
         self.sensor_attributes = []
         # Reset the drone pose and orientation to defaults
         self.drone_pose = [0.0, 0.0, 0.0]
