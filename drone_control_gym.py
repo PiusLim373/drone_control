@@ -132,8 +132,8 @@ class DroneControlGym(gym.Env):
                 logging.debug("drone has flipped")
                 reward += FLIPPED_REWARD
                 finished = True
-            # if drone is out of RANGE_LIMIT return OUT_OF_BOUND_REWARD, not sure need this or not
-            if self.drone_pose[0] > RANGE_LIMIT or self.drone_pose[1] > RANGE_LIMIT:
+            # if distance from goal is more than
+            if self.distance_to_goal > RANGE_LIMIT:
                 logging.debug("drone is out of bound")
                 reward += OUT_OF_BOUND_REWARD
                 finished = True
@@ -189,8 +189,8 @@ class DroneControlGym(gym.Env):
         mujoco.mj_resetData(self.model, self.drone)
         # Randomly initialize a new goal pose
         self.goal_pose = [
-            random.uniform(0.0, RANGE_LIMIT),
-            random.uniform(0.0, RANGE_LIMIT),
+            random.uniform(-RANGE_LIMIT / 2, RANGE_LIMIT / 2),
+            random.uniform(-RANGE_LIMIT / 2, RANGE_LIMIT / 2),
             random.uniform(0.1, RANGE_LIMIT),
         ]
         # Reset motor states
@@ -219,9 +219,11 @@ class DroneControlGym(gym.Env):
         return self.get_all_state(), ACTIONS
 
     def step(self, action):
-        logging.debug(f"drone stepped with action [{action[0]}] [{action[1]}]")
-        logging.debug(f"                             X")
-        logging.debug(f"                          [{action[3]}] [{action[2]}]")
+        logging.debug(
+            f"                         [{action[0]}] [{action[1]}]\n"
+            f"                                  drone stepped with action   X\n"
+            f"                                                           [{action[3]}] [{action[2]}]"
+        )
 
         # using action given, pop the first motor state and append the new motor state for each motor
         for index, individual_action in enumerate(action):
@@ -268,11 +270,11 @@ class DroneControlGym(gym.Env):
 
 if __name__ == "__main__":
     # Sample Usage
+
     gym_env = DroneControlGym()
 
     while gym_env.step_count < 25:
         gym_env.step(ACTIONS[0])
-
     while gym_env.step_count < 50:
         gym_env.step(ACTIONS[15])
 
