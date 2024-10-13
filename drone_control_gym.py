@@ -270,11 +270,11 @@ class DroneControlGym(gym.Env):
 
 if __name__ == "__main__":
     # Sample Usage
-
     gym_env = DroneControlGym()
 
     while gym_env.step_count < 25:
         gym_env.step(ACTIONS[0])
+
     while gym_env.step_count < 50:
         gym_env.step(ACTIONS[15])
 
