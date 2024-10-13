@@ -133,11 +133,7 @@ class DroneControlGym(gym.Env):
                 reward += FLIPPED_REWARD
                 finished = True
             # if drone is out of RANGE_LIMIT return OUT_OF_BOUND_REWARD, not sure need this or not
-            if (
-                self.drone_pose[0] > RANGE_LIMIT
-                or self.drone_pose[1] > RANGE_LIMIT
-                or self.drone_pose[2] < HEIGHT_LOWER_LIMIT
-            ):
+            if self.drone_pose[0] > RANGE_LIMIT or self.drone_pose[1] > RANGE_LIMIT:
                 logging.debug("drone is out of bound")
                 reward += OUT_OF_BOUND_REWARD
                 finished = True
