@@ -36,3 +36,17 @@ while gym_env.step_count < 140:
 print(f"Drone pose at step {gym_env.step_count}: {gym_env.get_pose()}")
 # render the simulation, press Esc to continue
 gym_env.render()
+
+# Now reset the environment after step 140
+print("Resetting the environment after step 140")
+gym_env.reset()  # Reset the environment to its initial state
+print(f"After reset, step: {gym_env.step_count}")
+print(f"Drone pose after reset: {gym_env.get_pose()}")
+
+# Run the simulation for 25 steps to allow the quadcopter to reach a stationary state
+while gym_env.step_count < 25:
+    print(f"step: {gym_env.step_count}, state: {gym_env.step(ACTIONS[0])}")
+# at the end of step 25, the quadcopter is at a stationary state and near position 0, 0, 0
+print(f"Drone pose at step {gym_env.step_count}: {gym_env.get_pose()}")
+# render the simulation, press Esc to continue
+gym_env.render()
