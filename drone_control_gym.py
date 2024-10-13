@@ -126,14 +126,17 @@ class DroneControlGym(gym.Env):
             return True, GOAL_REWARD
         else:
             reward = 0
+            finished = False
             # if drone is flipped (or collided?), return FLIPPED_REWARD
             if abs(self.drone_rpy[0]) > ROLL_THRESHOLD or abs(self.drone_rpy[1]) > PITCH_THRESHOLD:
                 logging.debug("drone has flipped")
                 reward += FLIPPED_REWARD
+                finished = True
             # if drone is out of RANGE_LIMIT return OUT_OF_BOUND_REWARD, not sure need this or not
             if self.drone_pose[0] > RANGE_LIMIT or self.drone_pose[1] > RANGE_LIMIT:
                 logging.debug("drone is out of bound")
                 reward += OUT_OF_BOUND_REWARD
+                finished = True
             # check if current duty cycle is equal to previous duty cycle and position is same
             if np.array_equal(self.drone.ctrl, self.drone_last_ctrl) and np.all(
                 np.abs(self.drone_pose - self.last_drone_pose) < IDLE_POSITION_THRESHOLD
@@ -151,7 +154,7 @@ class DroneControlGym(gym.Env):
                 if np.all(np.abs(self.drone_acc) < ACC_SMOOTH_THRESHOLD):
                     logging.debug("drone is moving smoothly")
                     reward += SMOOTH_MOTION_REWARD
-            return False, reward
+            return finished, reward
 
     def get_pose(self):
         self._update_drone_data_from_sim()
@@ -182,24 +185,24 @@ class DroneControlGym(gym.Env):
         }
 
     def reset(self):
-        #Reset simulation data
+        # Reset simulation data
         mujoco.mj_resetData(self.model, self.drone)
         # Randomly initialize a new goal pose
         self.goal_pose = [
             random.uniform(0.0, RANGE_LIMIT),
             random.uniform(0.0, RANGE_LIMIT),
             random.uniform(0.1, RANGE_LIMIT),
-        ] 
+        ]
         # Reset motor states
         self.motor_states = [
-        [0] * RESOLUTION,
-        [0] * RESOLUTION,
-        [0] * RESOLUTION,
-        [0] * RESOLUTION,
+            [0] * RESOLUTION,
+            [0] * RESOLUTION,
+            [0] * RESOLUTION,
+            [0] * RESOLUTION,
         ]
         # Reset IMU readings
         self.drone_acc = []
-        self.drone_gyro = [] 
+        self.drone_gyro = []
         self.sensor_attributes = []
         # Reset the drone pose and orientation to defaults
         self.drone_pose = [0.0, 0.0, 0.0]
@@ -208,8 +211,8 @@ class DroneControlGym(gym.Env):
         self.drone_motor_thrust = None
         self.distance_to_goal = None
         self.drone_last_ctrl = np.zeros(4)
-        self.step_count= 1
-        self.has_finished= False
+        self.step_count = 1
+        self.has_finished = False
         # Step the simulation once to apply the reset thrust values
         mujoco.mj_step(self.model, self.drone)
         # Return the initial observation and goal
@@ -219,11 +222,6 @@ class DroneControlGym(gym.Env):
         logging.debug(f"drone stepped with action [{action[0]}] [{action[1]}]")
         logging.debug(f"                             X")
         logging.debug(f"                          [{action[3]}] [{action[2]}]")
-        self.last_drone_motor_thrust = copy.deepcopy(self.drone_motor_thrust)
-        self.last_drone_pose = copy.deepcopy(self.drone_pose)
-        self.last_drone_rpy = copy.deepcopy(self.drone_rpy)
-        self.last_drone_acc = copy.deepcopy(self.drone_acc)
-        self.last_drone_gyro = copy.deepcopy(self.drone_gyro)
 
         # using action given, pop the first motor state and append the new motor state for each motor
         for index, individual_action in enumerate(action):
@@ -239,19 +237,14 @@ class DroneControlGym(gym.Env):
         self.goal_attributes = self._calculate_goal_attributes()  # return list of [dx, dy, dz, d]
         self.has_finished, self.reward = self._calculate_reward()  # return bool and float
 
+        logging.debug(f"Step: {self.step_count}")
         logging.debug(f"Reward: {self.reward}")
         logging.debug(f"Finished episode: {self.has_finished}")
         logging.debug(f"Goal attributes: {self.goal_attributes}")
-        logging.debug(f"Previous drone pose: {self.last_drone_pose}")
-        logging.debug(f"Current drone pose: {self.drone_pose}")
-        logging.debug(f"Previous drone RPY: {self.last_drone_rpy}")
         logging.debug(f"Current drone RPY: {self.drone_rpy}")
-        logging.debug(f"Previous motor thrust: {self.last_drone_motor_thrust}")
-        logging.debug(f"Current motor thrust: {self.drone_motor_thrust}")
-        logging.debug(f"Previous IMU accelerations: {self.last_drone_acc}")
-        logging.debug(f"Current IMU accelerations:{self.drone_acc}")
-        logging.debug(f"Previous IMU gyro velocities: {self.last_drone_gyro}")
-        logging.debug(f"Current IMU gyro velocities{self.drone_gyro}")
+        logging.debug(f"Current drone motor thrust: {self.drone_motor_thrust}")
+        logging.debug(f"Current drone accelerations:{self.drone_acc}")
+        logging.debug(f"Current drone gyro velocities{self.drone_gyro}")
 
         return self.get_all_state()
 
@@ -260,16 +253,11 @@ class DroneControlGym(gym.Env):
             self.reward,
             self.has_finished,
             self.goal_attributes,
-            self.drone_pose,
             self.drone_rpy,
             self.drone_motor_thrust,
             self.drone_acc,
             self.drone_gyro,
-            self.last_drone_pose,
-            self.last_drone_rpy,
-            self.last_drone_motor_thrust,
-            self.last_drone_acc,
-            self.last_drone_gyro,
+            ACTIONS,
         )
 
     def render(self):
