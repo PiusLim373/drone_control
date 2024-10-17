@@ -145,29 +145,29 @@ class DroneControlGym(gym.Env):
                     logging.debug("drone has flipped")
                     reward += FLIPPED_REWARD
                     finished = True
-                    return finished, reward
-
+                    
                 # if drone is flipped (or collided?), return FLIPPED_REWARD
                 # REWARD = ACTION + OUT
                 if (
-                    abs(self.vector_to_goal[0]) >= (RANGE_LIMIT / 2 + RANGE_BUFFER)
-                    or abs(self.vector_to_goal[1]) >= (RANGE_LIMIT / 2 + RANGE_BUFFER)
-                    or abs(self.vector_to_goal[2]) >= (RANGE_LIMIT + RANGE_BUFFER)
+                    abs(self.drone_position[0]) >= (RANGE_LIMIT / 2 + RANGE_BUFFER)
+                    or abs(self.drone_position[1]) >= (RANGE_LIMIT / 2 + RANGE_BUFFER)
+                    or abs(self.drone_position[2]) >= (RANGE_LIMIT + RANGE_BUFFER)
                 ):
                     logging.debug("drone is out of bound")
                     reward += OUT_OF_BOUND_REWARD
                     finished = True
-                    return finished, reward
-
-                # Check for smooth angular motion (low angular velocity)
-                # REWARD = ACTION + SMOOTH
-                if np.all(np.abs(self.drone_gyro) < GYRO_SMOOTH_THRESHOLD):
-                    logging.debug("drone is rotating smoothly")
-                    reward += SMOOTH_MOTION_REWARD
-                # Check for smooth linear motion (low acceleration)
-                if np.all(np.abs(self.drone_acc) < ACC_SMOOTH_THRESHOLD):
-                    logging.debug("drone is moving smoothly")
-                    reward += SMOOTH_MOTION_REWARD
+                    
+                # Apply smooth motion rewards only if not flipped or out of bounds
+                if not finished:
+                    # Check for smooth angular motion (low angular velocity)
+                    # REWARD = ACTION + SMOOTH
+                    if np.all(np.abs(self.drone_gyro) < GYRO_SMOOTH_THRESHOLD):
+                        logging.debug("drone is rotating smoothly")
+                        reward += SMOOTH_MOTION_REWARD
+                    # Check for smooth linear motion (low acceleration)
+                    if np.all(np.abs(self.drone_acc) < ACC_SMOOTH_THRESHOLD):
+                        logging.debug("drone is moving smoothly")
+                        reward += SMOOTH_MOTION_REWARD
 
             return finished, reward
 
