@@ -79,8 +79,8 @@ class DroneControlGym(gym.Env):
             random.uniform(0.0, RANGE_LIMIT),
             random.uniform(0.1, RANGE_LIMIT),
         ]  # randomly initialize goal pose (x, y, z) within RANGE_LIMIT
-        self.drone_pose = [0.0, 0.0, 0.0]
-        self.last_drone_pose = [0.0, 0.0, 0.0]
+        self.drone_position = [0.0, 0.0, 0.0]
+        self.last_drone_position = [0.0, 0.0, 0.0]
         self.drone_rpy = None
         self.last_drone_rpy = None
         self.drone_motor_thrust = None
@@ -92,7 +92,7 @@ class DroneControlGym(gym.Env):
     def _update_drone_data_from_sim(self):
         rpy_angles = quaternion_to_rpy(self.drone.xquat[1])
         self.drone_rpy = np.array(rpy_angles)
-        self.drone_pose = np.array(self.drone.xpos[1])
+        self.drone_position = np.array(self.drone.xpos[1])
         self.drone_acc = self.drone.sensordata[self.acc_index : self.acc_index + 3]  # Accelerometer (x, y, z)
         self.drone_gyro = self.drone.sensordata[self.gyro_index : self.gyro_index + 3]  # Gyroscope (x, y, z)
 
@@ -106,7 +106,7 @@ class DroneControlGym(gym.Env):
 
     def _calculate_goal_attributes(self):
         # Calculate vector difference between goal and drone's current position
-        vector_to_goal = np.array(self.goal_pose) - np.array(self.drone_pose)
+        vector_to_goal = np.array(self.goal_pose) - np.array(self.drone_position)
         self.distance_to_goal = np.linalg.norm(vector_to_goal)  # Calculate distance
         if self.distance_to_goal > 0:
             dx, dy, dz = vector_to_goal / self.distance_to_goal  # Normalize
@@ -139,7 +139,7 @@ class DroneControlGym(gym.Env):
                 finished = True
             # check if current duty cycle is equal to previous duty cycle and position is same
             if np.array_equal(self.drone.ctrl, self.drone_last_ctrl) and np.all(
-                np.abs(self.drone_pose - self.last_drone_pose) < IDLE_POSITION_THRESHOLD
+                np.abs(self.drone_position - self.last_drone_position) < IDLE_POSITION_THRESHOLD
             ):
                 logging.debug("drone is idle in place")
                 reward += IDLE_COST
@@ -159,9 +159,9 @@ class DroneControlGym(gym.Env):
     def get_pose(self):
         self._update_drone_data_from_sim()
         return {
-            "x": self.drone_pose[0],
-            "y": self.drone_pose[1],
-            "z": self.drone_pose[2],
+            "x": self.drone_position[0],
+            "y": self.drone_position[1],
+            "z": self.drone_position[2],
             "roll": self.drone_rpy[0],
             "pitch": self.drone_rpy[1],
             "yaw": self.drone_rpy[2],
@@ -205,8 +205,8 @@ class DroneControlGym(gym.Env):
         self.drone_gyro = []
         self.sensor_attributes = []
         # Reset the drone pose and orientation to defaults
-        self.drone_pose = [0.0, 0.0, 0.0]
-        self.last_drone_pose = [0.0, 0.0, 0.0]
+        self.drone_position = [0.0, 0.0, 0.0]
+        self.last_drone_position = [0.0, 0.0, 0.0]
         self.drone_rpy = None
         self.drone_motor_thrust = None
         self.distance_to_goal = None
