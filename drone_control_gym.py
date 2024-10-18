@@ -33,7 +33,7 @@ ACC_SMOOTH_THRESHOLD = 0.1  # Threshold for linear acceleration (m/s^2)
     OUT_OF_BOUND_REWARD,
     FLIPPED_REWARD,
     SMOOTH_MOTION_REWARD,
-) = (-2, -4, 100, -50, -50, 1)
+) = (-3, -5, 3000, -1000, -1000, 1)
 ACTIONS = [
     [0, 0, 0, 0],
     [0, 0, 0, 1],
@@ -56,40 +56,43 @@ ACTIONS = [
 
 class DroneControlGym(gym.Env):
     def __init__(self):
+        # Load the drone model and initialize the simulation
         self.model = mujoco.MjModel.from_xml_path(DRONE_MODEL_PATH)
         self.drone = mujoco.MjData(self.model)
+
         # Get the index of the IMU sensors (accelerometer and gyro) from the XML definition
         self.gyro_index = self.model.sensor_adr[mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_SENSOR, "body_gyro")]
         self.acc_index = self.model.sensor_adr[mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_SENSOR, "body_linacc")]
 
-        # Initialize IMU readings
         self.drone_acc = []
         self.drone_gyro = []
-        self.sensor_attributes = []
-
-        mujoco.mj_step(self.model, self.drone)
+        self.drone_motor_thrust = None
+        self.drone_position = [0.0, 0.0, 0.0]
+        self.drone_rpy = None
+        self.last_drone_rpy = None
+        self.last_drone_motor_thrust = None
+        self.last_drone_position = [0.0, 0.0, 0.0]
         self.motor_states = [
             [0] * RESOLUTION,
             [0] * RESOLUTION,
             [0] * RESOLUTION,
             [0] * RESOLUTION,
         ]
+
+        # randomly initialize goal pose (x, y, z) within RANGE_LIMIT
         self.goal_pose = [
             random.uniform(-RANGE_LIMIT / 2, RANGE_LIMIT / 2),
             random.uniform(-RANGE_LIMIT / 2, RANGE_LIMIT / 2),
             random.uniform(0.1, RANGE_LIMIT),
-        ]  # randomly initialize goal pose (x, y, z) within RANGE_LIMIT
-        self.drone_position = [0.0, 0.0, 0.0]
-        self.last_drone_position = [0.0, 0.0, 0.0]
-        self.drone_rpy = None
-        self.last_drone_rpy = None
-        self.drone_motor_thrust = None
-        self.last_drone_motor_thrust = None
+        ]
         self.distance_to_goal = None
-        self.step_count = 1
+
         self.has_finished = False
+        mujoco.mj_step(self.model, self.drone)
+        self.step_count = 1
 
     def _update_drone_data_from_sim(self):
+        # Get the drone's current pose, orientation, and sensor readings from the simulation
         rpy_angles = quaternion_to_rpy(self.drone.xquat[1])
         self.drone_rpy = np.array(rpy_angles)
         self.drone_position = np.array(self.drone.xpos[1])
@@ -97,6 +100,7 @@ class DroneControlGym(gym.Env):
         self.drone_gyro = self.drone.sensordata[self.gyro_index : self.gyro_index + 3]  # Gyroscope (x, y, z)
 
     def _update_motor_thrust(self):
+        # Calculate the average duty cycle for each motor and set the thrust values
         duty_cycle = [0] * 4
         thrust = [0] * 4
         for index, individual_motor_state in enumerate(self.motor_states):
@@ -171,6 +175,7 @@ class DroneControlGym(gym.Env):
             return finished, reward
 
     def get_pose(self):
+        # Returns the current pose of the drone (x, y, z, roll, pitch, yaw)
         self._update_drone_data_from_sim()
         return {
             "x": self.drone_position[0],
@@ -182,9 +187,11 @@ class DroneControlGym(gym.Env):
         }
 
     def get_goal(self):
+        # Returns the current goal position (x, y, z)
         return {"x": self.goal_pose[0], "y": self.goal_pose[1], "z": self.goal_pose[2]}
 
     def get_imu_reading(self):
+        # returns the current accelerometer and gyroscope readings
         return {
             "accelerometer": {
                 "x": self.drone_acc[0],
@@ -197,6 +204,18 @@ class DroneControlGym(gym.Env):
                 "z": self.drone_gyro[2],
             },
         }
+
+    def get_all_state(self):
+        return (
+            self.reward,
+            self.has_finished,
+            self.goal_attributes,
+            self.drone_rpy,
+            self.drone_motor_thrust,
+            self.drone_acc,
+            self.drone_gyro,
+            ACTIONS,
+        )
 
     def reset(self):
         # Reset simulation data
@@ -217,7 +236,6 @@ class DroneControlGym(gym.Env):
         # Reset IMU readings
         self.drone_acc = []
         self.drone_gyro = []
-        self.sensor_attributes = []
         # Reset the drone pose and orientation to defaults
         self.drone_position = [0.0, 0.0, 0.0]
         self.last_drone_position = [0.0, 0.0, 0.0]
@@ -233,6 +251,7 @@ class DroneControlGym(gym.Env):
         return self.get_all_state(), ACTIONS
 
     def step(self, action):
+        # Called by learning agent, step through the simulation with the given action, and get some new state back
         logging.debug(
             f"                         [{action[0]}] [{action[1]}]\n"
             f"                                  drone stepped with action   X\n"
@@ -245,9 +264,10 @@ class DroneControlGym(gym.Env):
             self.motor_states[index].append(individual_action)
         self.last_drone_motor_thrust = self.drone_motor_thrust
         self._update_motor_thrust()
+
+        # step through the simulator and get data
         mujoco.mj_step(self.model, self.drone)
         self.step_count += 1
-
         self._update_drone_data_from_sim()
         self.drone_motor_thrust = np.array(self.drone.actuator_force)
 
@@ -265,19 +285,8 @@ class DroneControlGym(gym.Env):
 
         return self.get_all_state()
 
-    def get_all_state(self):
-        return (
-            self.reward,
-            self.has_finished,
-            self.goal_attributes,
-            self.drone_rpy,
-            self.drone_motor_thrust,
-            self.drone_acc,
-            self.drone_gyro,
-            ACTIONS,
-        )
-
     def render(self):
+        # Render for visualization, press Esc to continue
         self.viewer = mujoco_viewer.MujocoViewer(self.model, self.drone)
         while self.viewer.is_alive:
             self.viewer.render()
