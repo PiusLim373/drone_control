@@ -5,7 +5,6 @@ import mujoco
 import mujoco_viewer
 import os
 import random
-import copy
 import logging
 from custom_utils import *
 
@@ -145,7 +144,7 @@ class DroneControlGym(gym.Env):
                     logging.debug("drone has flipped")
                     reward += FLIPPED_REWARD
                     finished = True
-                    
+
                 # if drone is flipped (or collided?), return FLIPPED_REWARD
                 # REWARD = ACTION + OUT
                 if (
@@ -156,7 +155,7 @@ class DroneControlGym(gym.Env):
                     logging.debug("drone is out of bound")
                     reward += OUT_OF_BOUND_REWARD
                     finished = True
-                    
+
                 # Apply smooth motion rewards only if not flipped or out of bounds
                 if not finished:
                     # Check for smooth angular motion (low angular velocity)
@@ -282,29 +281,3 @@ class DroneControlGym(gym.Env):
         self.viewer = mujoco_viewer.MujocoViewer(self.model, self.drone)
         while self.viewer.is_alive:
             self.viewer.render()
-
-
-if __name__ == "__main__":
-    # Sample Usage
-    gym_env = DroneControlGym()
-
-    while gym_env.step_count < 25:
-        gym_env.step(ACTIONS[0])
-
-    while gym_env.step_count < 50:
-        gym_env.step(ACTIONS[15])
-
-    while gym_env.step_count < 55:
-        gym_env.step(ACTIONS[3])
-
-    while gym_env.step_count < 70:
-        gym_env.step(ACTIONS[15])
-
-    while gym_env.step_count < 75:
-        gym_env.step(ACTIONS[12])
-
-    while gym_env.step_count < 120:
-        gym_env.step(ACTIONS[15])
-
-    while gym_env.step_count < 350:
-        gym_env.step(ACTIONS[0])

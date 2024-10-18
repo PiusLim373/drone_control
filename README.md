@@ -8,6 +8,7 @@ git clone https://github.com/PiusLim373/drone_control.git
 ```
 ### 2. Setup using Conda
 ```
+cd drone_control
 conda env create -f requirement.yml
 conda activate me5418-drone-control
 ```
@@ -37,6 +38,12 @@ For the next 50steps, activate the diagonal rotor 1 and rotor 3 and the quadcopt
 #### Checkpoint 4
 For the next 15steps, activate the back rotor 3 and rotor 4 and the quadcopter will rotate perform pitch rotation.
 ![](asset/docs/drone_pitch_rotation.png)
+
+### 3. Unit Tests
+```
+python gym_unittests.py
+```
+
 
 ## Running the Neural Network Demo (Assignment 2) 
 Stay tuned, coming soon!
