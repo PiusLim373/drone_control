@@ -19,7 +19,7 @@ Assignment 1 is about showing a working version of the gym environment that will
 ``` 
 python gym_demo.py
 ```
-This demo script will create an environment in demo mode and run for 140steps for visualization. There are 4 checkpoints in this demo.
+This demo script will create an environment in demo mode and run for 140steps for visualization. There are 5 checkpoints in this demo.
 
 :warning: You will need to press ECS key to end the rendering at the end of each checkpoint so that the demo will continue.
 
@@ -38,6 +38,9 @@ For the next 50steps, activate the diagonal rotor 1 and rotor 3 and the quadcopt
 #### Checkpoint 4
 For the next 15steps, activate the back rotor 3 and rotor 4 and the quadcopter will rotate perform pitch rotation.
 ![](asset/docs/drone_pitch_rotation.png)
+
+#### Checkpoint 5
+Reset the environment, spawn the quadcopter and wait for it to reach a stable stationary state.
 
 ### 3. Unit Tests
 ```
