@@ -9,3 +9,6 @@ dependencies:
     - mujoco-python-viewer
     - numpy
     - scipy
+    - tensorboard
+    - pyparsing
+    - matplotlib

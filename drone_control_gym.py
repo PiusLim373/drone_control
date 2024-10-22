@@ -8,7 +8,7 @@ import random
 import logging
 from custom_utils import *
 
-logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s")
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 np.set_printoptions(suppress=True, threshold=np.inf, linewidth=np.inf)
 # Global variables
 RANGE_LIMIT = 10
@@ -55,7 +55,7 @@ ACTIONS = [
 
 
 class DroneControlGym(gym.Env):
-    def __init__(self):
+    def __init__(self, goal_pose=None):
         # Load the drone model and initialize the simulation
         self.model = mujoco.MjModel.from_xml_path(DRONE_MODEL_PATH)
         self.drone = mujoco.MjData(self.model)
@@ -80,11 +80,14 @@ class DroneControlGym(gym.Env):
         ]
 
         # randomly initialize goal pose (x, y, z) within RANGE_LIMIT
-        self.goal_pose = [
-            random.uniform(-RANGE_LIMIT / 2, RANGE_LIMIT / 2),
-            random.uniform(-RANGE_LIMIT / 2, RANGE_LIMIT / 2),
-            random.uniform(0.1, RANGE_LIMIT),
-        ]
+        if goal_pose == None:
+            self.goal_pose = [
+                random.uniform(-RANGE_LIMIT / 2, RANGE_LIMIT / 2),
+                random.uniform(-RANGE_LIMIT / 2, RANGE_LIMIT / 2),
+                random.uniform(0.1, RANGE_LIMIT),
+            ]
+        else:
+            self.goal_pose = goal_pose
         self.distance_to_goal = None
 
         self.has_finished = False
@@ -145,7 +148,7 @@ class DroneControlGym(gym.Env):
                 # if drone is flipped (or collided?), return FLIPPED_REWARD
                 # REWARD = ACTION + FLIPPED
                 if abs(self.drone_rpy[0]) > ROLL_THRESHOLD or abs(self.drone_rpy[1]) > PITCH_THRESHOLD:
-                    logging.debug("drone has flipped")
+                    logging.info("drone has flipped")
                     reward += FLIPPED_REWARD
                     finished = True
 
@@ -156,7 +159,7 @@ class DroneControlGym(gym.Env):
                     or abs(self.drone_position[1]) >= (RANGE_LIMIT / 2 + RANGE_BUFFER)
                     or abs(self.drone_position[2]) >= (RANGE_LIMIT + RANGE_BUFFER)
                 ):
-                    logging.debug("drone is out of bound")
+                    logging.info("drone is out of bound")
                     reward += OUT_OF_BOUND_REWARD
                     finished = True
 
@@ -206,26 +209,29 @@ class DroneControlGym(gym.Env):
         }
 
     def get_all_state(self):
+        combined_array = np.concatenate((self.goal_attributes, self.drone_rpy, self.drone_motor_thrust, self.drone_acc, self.drone_gyro))
+        observations = combined_array.tolist()
         return (
             self.reward,
             self.has_finished,
-            self.goal_attributes,
-            self.drone_rpy,
-            self.drone_motor_thrust,
-            self.drone_acc,
-            self.drone_gyro,
-            ACTIONS,
+            observations,
         )
 
-    def reset(self):
+    def reset(self, goal_pose=None):
         # Reset simulation data
         mujoco.mj_resetData(self.model, self.drone)
         # Randomly initialize a new goal pose
-        self.goal_pose = [
-            random.uniform(-RANGE_LIMIT / 2, RANGE_LIMIT / 2),
-            random.uniform(-RANGE_LIMIT / 2, RANGE_LIMIT / 2),
-            random.uniform(0.1, RANGE_LIMIT),
-        ]
+        if goal_pose == None:
+            self.goal_pose = [
+                random.uniform(-RANGE_LIMIT / 2, RANGE_LIMIT / 2),
+                random.uniform(-RANGE_LIMIT / 2, RANGE_LIMIT / 2),
+                random.uniform(0.1, RANGE_LIMIT),
+            ]
+        else:
+            self.goal_pose = goal_pose
+        
+        self.goal_attributes = self._calculate_goal_attributes()
+        
         # Reset motor states
         self.motor_states = [
             [0] * RESOLUTION,
@@ -240,15 +246,18 @@ class DroneControlGym(gym.Env):
         self.drone_position = [0.0, 0.0, 0.0]
         self.last_drone_position = [0.0, 0.0, 0.0]
         self.drone_rpy = None
-        self.drone_motor_thrust = None
         self.distance_to_goal = None
         self.drone_last_ctrl = np.zeros(4)
         self.step_count = 1
         self.has_finished = False
         # Step the simulation once to apply the reset thrust values
         mujoco.mj_step(self.model, self.drone)
+        self._update_drone_data_from_sim()
+        self.drone_motor_thrust = np.array(self.drone.actuator_force)
         # Return the initial observation and goal
-        return self.get_all_state(), ACTIONS
+        combined_array = np.concatenate((self.goal_attributes, self.drone_rpy, self.drone_motor_thrust, self.drone_acc, self.drone_gyro))
+        observations = combined_array.tolist()
+        return observations
 
     def step(self, action):
         # Called by learning agent, step through the simulation with the given action, and get some new state back
