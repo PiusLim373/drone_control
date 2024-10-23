@@ -217,13 +217,14 @@ class Agent:
 
         self.memory.clear_memory()
 
+
 LOAD_MODEL = False
-env = DroneControlGym([0, 0.5, 1.5])
+env = DroneControlGym(render=True)
 N = 20
 batch_size = 5
 n_epochs = 4
 alpha = 0.0003
-n_games = 301
+n_games = 1000
 
 agent = Agent(
     n_actions=16,
@@ -243,7 +244,8 @@ avg_score = 0
 n_steps = 0
 
 for i in range(n_games):
-    observation = env.reset(goal_pose=[0, 0.5, 1.5])
+    observation = env.reset()
+    print(env.goal_pose)
     done = False
     score = 0
 
@@ -257,8 +259,8 @@ for i in range(n_games):
             agent.learn(i)
             learn_iters += 1
         observation = observation_
-        if n_steps > 1000:
-            print("Terminated at 1000 steps")
+        if n_steps > 500:
+            print("Terminated at 500 steps")
             done = True
     # env.render()
     score_history.append(score)
@@ -269,7 +271,7 @@ for i in range(n_games):
     if i % 10 == 0:
         print("... saving models after 10episode ...")
         agent.save_models()
-        
+
     # if avg_score > best_score:
     #     best_score = avg_score
     #     agent.save_models()

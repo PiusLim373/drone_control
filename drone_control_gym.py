@@ -11,9 +11,9 @@ from custom_utils import *
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 np.set_printoptions(suppress=True, threshold=np.inf, linewidth=np.inf)
 # Global variables
-RANGE_LIMIT = 10
+RANGE_LIMIT = 1
 RANGE_BUFFER = 1
-RESOLUTION = 10
+RESOLUTION = 1
 GOAL_TOLERANCE = 0.1  # if the drone is within 0.1m of the goal, it is considered to have reached the goal
 FULL_THROTTLE = 7
 DRONE_MODEL_PATH = os.path.join(os.getcwd(), "asset/skydio_x2/scene.xml")
@@ -33,7 +33,7 @@ ACC_SMOOTH_THRESHOLD = 0.1  # Threshold for linear acceleration (m/s^2)
     OUT_OF_BOUND_REWARD,
     FLIPPED_REWARD,
     SMOOTH_MOTION_REWARD,
-) = (-3, -5, 3000, -1000, -1000, 1)
+) = (-1, -10, 3000, -3000, -3000, 1)
 ACTIONS = [
     [0, 0, 0, 0],
     [0, 0, 0, 1],
@@ -55,7 +55,7 @@ ACTIONS = [
 
 
 class DroneControlGym(gym.Env):
-    def __init__(self, goal_pose=None):
+    def __init__(self, goal_pose=None, render=False):
         # Load the drone model and initialize the simulation
         self.model = mujoco.MjModel.from_xml_path(DRONE_MODEL_PATH)
         self.drone = mujoco.MjData(self.model)
@@ -63,6 +63,9 @@ class DroneControlGym(gym.Env):
         # Get the index of the IMU sensors (accelerometer and gyro) from the XML definition
         self.gyro_index = self.model.sensor_adr[mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_SENSOR, "body_gyro")]
         self.acc_index = self.model.sensor_adr[mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_SENSOR, "body_linacc")]
+        self.viewer = mujoco_viewer.MujocoViewer(self.model, self.drone)
+        self.goal_id = self.model.geom("goal").id  # Get the index of the point geom
+        self.renderflag = render
 
         self.drone_acc = []
         self.drone_gyro = []
@@ -88,7 +91,10 @@ class DroneControlGym(gym.Env):
             ]
         else:
             self.goal_pose = goal_pose
+
+        self.drone.geom_xpos[self.goal_id] = np.copy(self.goal_pose)  # Set the position of the point
         self.distance_to_goal = None
+        self.last_distance_to_goal = 0
 
         self.has_finished = False
         mujoco.mj_step(self.model, self.drone)
@@ -124,21 +130,15 @@ class DroneControlGym(gym.Env):
     def _calculate_reward(self):
         # calculate reward based on the current state of the drone and if the drone has reached the goal
         # Check if the roll and pitch are close to zero (upright)
-        if (
-            self.distance_to_goal < GOAL_TOLERANCE
-            and abs(self.drone_rpy[0]) < ROLL_TARGET
-            and abs(self.drone_rpy[1]) < PITCH_TARGET
-        ):
-            logging.debug("The drone is staying upright at the goal.")
+        if self.distance_to_goal < GOAL_TOLERANCE:
+            logging.info("The drone is staying upright at the goal.")
             return True, GOAL_REWARD
         else:
             reward = 0
             finished = False
 
             # check if current duty cycle is equal to previous duty cycle and position is same
-            if np.array_equal(self.drone_motor_thrust, self.last_drone_motor_thrust) and np.all(
-                np.abs(self.drone_position - self.last_drone_position) < IDLE_POSITION_THRESHOLD
-            ):
+            if np.all(np.abs(self.drone_position - self.last_drone_position) < IDLE_POSITION_THRESHOLD):
                 logging.debug("drone is idle in place")
                 reward += IDLE_COST
             else:
@@ -154,26 +154,32 @@ class DroneControlGym(gym.Env):
 
                 # if drone is flipped (or collided?), return FLIPPED_REWARD
                 # REWARD = ACTION + OUT
-                if (
-                    abs(self.drone_position[0]) >= (RANGE_LIMIT / 2 + RANGE_BUFFER)
-                    or abs(self.drone_position[1]) >= (RANGE_LIMIT / 2 + RANGE_BUFFER)
-                    or abs(self.drone_position[2]) >= (RANGE_LIMIT + RANGE_BUFFER)
-                ):
-                    logging.info("drone is out of bound")
-                    reward += OUT_OF_BOUND_REWARD
-                    finished = True
+                # if (
+                #     abs(self.drone_position[0]) >= (RANGE_LIMIT / 2 + RANGE_BUFFER)
+                #     or abs(self.drone_position[1]) >= (RANGE_LIMIT / 2 + RANGE_BUFFER)
+                #     or abs(self.drone_position[2]) >= (RANGE_LIMIT + RANGE_BUFFER)
+                # ):
+                #     logging.info("drone is out of bound")
+                #     reward += OUT_OF_BOUND_REWARD
+                #     finished = True
 
                 # Apply smooth motion rewards only if not flipped or out of bounds
                 if not finished:
                     # Check for smooth angular motion (low angular velocity)
                     # REWARD = ACTION + SMOOTH
-                    if np.all(np.abs(self.drone_gyro) < GYRO_SMOOTH_THRESHOLD):
-                        logging.debug("drone is rotating smoothly")
-                        reward += SMOOTH_MOTION_REWARD
-                    # Check for smooth linear motion (low acceleration)
-                    if np.all(np.abs(self.drone_acc) < ACC_SMOOTH_THRESHOLD):
-                        logging.debug("drone is moving smoothly")
-                        reward += SMOOTH_MOTION_REWARD
+                    if self.distance_to_goal < self.last_distance_to_goal:
+                        logging.debug("drone is approaching goal")
+                        reward += 3 / (self.distance_to_goal + 0.003)
+                    elif self.distance_to_goal >= self.last_distance_to_goal:
+                        logging.debug("drone is getting further from goal")
+                        reward -= 3
+                    # if np.all(np.abs(self.drone_gyro) < GYRO_SMOOTH_THRESHOLD):
+                    #     logging.debug("drone is rotating smoothly")
+                    #     reward += SMOOTH_MOTION_REWARD
+                    # # Check for smooth linear motion (low acceleration)
+                    # if np.all(np.abs(self.drone_acc) < ACC_SMOOTH_THRESHOLD):
+                    #     logging.debug("drone is moving smoothly")
+                    #     reward += SMOOTH_MOTION_REWARD
 
             return finished, reward
 
@@ -209,7 +215,9 @@ class DroneControlGym(gym.Env):
         }
 
     def get_all_state(self):
-        combined_array = np.concatenate((self.goal_attributes, self.drone_rpy, self.drone_motor_thrust, self.drone_acc, self.drone_gyro))
+        combined_array = np.concatenate(
+            (self.goal_attributes, self.drone_rpy, self.drone_motor_thrust, self.drone_acc, self.drone_gyro)
+        )
         observations = combined_array.tolist()
         return (
             self.reward,
@@ -229,9 +237,9 @@ class DroneControlGym(gym.Env):
             ]
         else:
             self.goal_pose = goal_pose
-        
+        self.drone.geom_xpos[self.goal_id] = np.copy(self.goal_pose)
         self.goal_attributes = self._calculate_goal_attributes()
-        
+
         # Reset motor states
         self.motor_states = [
             [0] * RESOLUTION,
@@ -247,6 +255,7 @@ class DroneControlGym(gym.Env):
         self.last_drone_position = [0.0, 0.0, 0.0]
         self.drone_rpy = None
         self.distance_to_goal = None
+        self.last_distance_to_goal = 0
         self.drone_last_ctrl = np.zeros(4)
         self.step_count = 1
         self.has_finished = False
@@ -255,7 +264,9 @@ class DroneControlGym(gym.Env):
         self._update_drone_data_from_sim()
         self.drone_motor_thrust = np.array(self.drone.actuator_force)
         # Return the initial observation and goal
-        combined_array = np.concatenate((self.goal_attributes, self.drone_rpy, self.drone_motor_thrust, self.drone_acc, self.drone_gyro))
+        combined_array = np.concatenate(
+            (self.goal_attributes, self.drone_rpy, self.drone_motor_thrust, self.drone_acc, self.drone_gyro)
+        )
         observations = combined_array.tolist()
         return observations
 
@@ -266,7 +277,7 @@ class DroneControlGym(gym.Env):
             f"                                  drone stepped with action   X\n"
             f"                                                           [{action[3]}] [{action[2]}]"
         )
-
+        self.last_goal_attributes = np.copy(self.goal_attributes)
         # using action given, pop the first motor state and append the new motor state for each motor
         for index, individual_action in enumerate(action):
             self.motor_states[index].pop(0)
@@ -276,6 +287,9 @@ class DroneControlGym(gym.Env):
 
         # step through the simulator and get data
         mujoco.mj_step(self.model, self.drone)
+        if self.renderflag:
+            self.drone.geom_xpos[self.goal_id] = np.copy(self.goal_pose)  # Set the position of the point
+            self.viewer.render()
         self.step_count += 1
         self._update_drone_data_from_sim()
         self.drone_motor_thrust = np.array(self.drone.actuator_force)
