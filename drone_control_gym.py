@@ -109,6 +109,9 @@ class DroneControlGym(gym.Env):
         self.drone.ctrl[:] = np.array(thrust)
 
     def _calculate_goal_attributes(self):
+        if self.drone_rpy is None:
+            self.drone_rpy = [0.0, 0.0, 0.0]  # Set to [0, 0, 0] if not initialized
+
         # Calculate vector difference between goal and drone's current position
         vector_to_goal_world = np.array(self.goal_pose) - np.array(self.drone_position)
         r, p, y = self.drone_rpy
