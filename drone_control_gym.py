@@ -109,14 +109,47 @@ class DroneControlGym(gym.Env):
         self.drone.ctrl[:] = np.array(thrust)
 
     def _calculate_goal_attributes(self):
+        if self.drone_rpy is None:
+            self.drone_rpy = [0.0, 0.0, 0.0]  # Set to [0, 0, 0] if not initialized
+
         # Calculate vector difference between goal and drone's current position
-        self.vector_to_goal = np.array(self.goal_pose) - np.array(self.drone_position)
-        self.distance_to_goal = np.linalg.norm(self.vector_to_goal)  # Calculate distance
+        vector_to_goal_world = np.array(self.goal_pose) - np.array(self.drone_position)
+        r, p, y = self.drone_rpy
+        R = self._rpy_to_rotation_matrix(r, p, y)
+        
+        # Transform the goal vector from the world frame to the drone's frame
+        vector_to_goal_drone_frame = np.dot(R.T, vector_to_goal_world)  # Transpose R because we want world to drone frame
+        
+        # Calculate distance to goal in the drone's frame
+        self.distance_to_goal = np.linalg.norm(vector_to_goal_drone_frame)
+        
+        # Normalize the vector to goal if the distance is greater than 0
         if self.distance_to_goal > 0:
-            dx, dy, dz = self.vector_to_goal / self.distance_to_goal  # Normalize
+            dx, dy, dz = vector_to_goal_drone_frame / self.distance_to_goal  # Normalize
         else:
             dx, dy, dz = 0.0, 0.0, 0.0  # If already at the goal
         return np.array([dx, dy, dz, self.distance_to_goal])
+    
+    def _rpy_to_rotation_matrix(self, roll, pitch, yaw):
+        # Convert roll, pitch, yaw to rotation matrix
+        roll, pitch, yaw = np.radians([roll, pitch, yaw])
+
+        R_x = np.array([[1, 0, 0],
+                        [0, np.cos(roll), -np.sin(roll)],
+                        [0, np.sin(roll), np.cos(roll)]])
+        
+        R_y = np.array([[np.cos(pitch), 0, np.sin(pitch)],
+                        [0, 1, 0],
+                        [-np.sin(pitch), 0, np.cos(pitch)]])
+        
+        R_z = np.array([[np.cos(yaw), -np.sin(yaw), 0],
+                        [np.sin(yaw), np.cos(yaw), 0],
+                        [0, 0, 1]])
+        
+        # The final rotation matrix is R = R_z * R_y * R_x
+        R = np.dot(R_z, np.dot(R_y, R_x))
+        
+        return R
 
     def _calculate_reward(self):
         # calculate reward based on the current state of the drone and if the drone has reached the goal
