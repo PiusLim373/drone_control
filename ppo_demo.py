@@ -83,10 +83,16 @@ class ActorNetwork(nn.Module):
         return dist
 
     def save_checkpoint(self):
-        T.save(self.state_dict(), self.checkpoint_file)
+        checkpoint = {
+            "model_state_dict": self.state_dict(),
+            "optimizer_state_dict": self.optimizer.state_dict(),
+        }
+        T.save(checkpoint, self.checkpoint_file)
 
     def load_checkpoint(self):
-        self.load_state_dict(T.load(self.checkpoint_file))
+        checkpoint = T.load(self.checkpoint_file)
+        self.load_state_dict(checkpoint["model_state_dict"])
+        self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
 
 
 class CriticNetwork(nn.Module):
@@ -112,10 +118,16 @@ class CriticNetwork(nn.Module):
         return value
 
     def save_checkpoint(self):
-        T.save(self.state_dict(), self.checkpoint_file)
+        checkpoint = {
+            "model_state_dict": self.state_dict(),
+            "optimizer_state_dict": self.optimizer.state_dict(),
+        }
+        T.save(checkpoint, self.checkpoint_file)
 
     def load_checkpoint(self):
-        self.load_state_dict(T.load(self.checkpoint_file))
+        checkpoint = T.load(self.checkpoint_file)
+        self.load_state_dict(checkpoint["model_state_dict"])
+        self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
 
 
 class Agent:
@@ -233,9 +245,11 @@ agent = Agent(
     n_epochs=n_epochs,
     input_dims=17,
 )
-
+start_step = 0
 if LOAD_MODEL:
     agent.load_models()
+    start_step = int(input("Enter the starting step: "))
+    print("Starting from step", start_step)
 best_score = env.reward_range[0]
 score_history = []
 
@@ -243,9 +257,8 @@ learn_iters = 0
 avg_score = 0
 n_steps = 0
 
-for i in range(n_games):
+for i in range(start_step, n_games):
     observation = env.reset()
-    print(env.goal_pose)
     done = False
     score = 0
 

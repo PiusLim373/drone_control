@@ -63,9 +63,10 @@ class DroneControlGym(gym.Env):
         # Get the index of the IMU sensors (accelerometer and gyro) from the XML definition
         self.gyro_index = self.model.sensor_adr[mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_SENSOR, "body_gyro")]
         self.acc_index = self.model.sensor_adr[mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_SENSOR, "body_linacc")]
-        self.viewer = mujoco_viewer.MujocoViewer(self.model, self.drone)
         self.goal_id = self.model.geom("goal").id  # Get the index of the point geom
         self.renderflag = render
+        if self.renderflag:
+            self.viewer = mujoco_viewer.MujocoViewer(self.model, self.drone)
 
         self.drone_acc = []
         self.drone_gyro = []
