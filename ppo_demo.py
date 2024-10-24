@@ -248,6 +248,8 @@ agent = Agent(
 start_step = 0
 if LOAD_MODEL:
     agent.load_models()
+    agent.critic.train()
+    agent.actor.train()
     start_step = int(input("Enter the starting step: "))
     print("Starting from step", start_step)
 best_score = env.reward_range[0]

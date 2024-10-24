@@ -25,6 +25,7 @@ HEIGHT_LOWER_LIMIT = 0.05  # m
 IDLE_POSITION_THRESHOLD = 0.05  # m
 GYRO_SMOOTH_THRESHOLD = 0.05  # Threshold for angular velocity (rad/s)
 ACC_SMOOTH_THRESHOLD = 0.1  # Threshold for linear acceleration (m/s^2)
+APPROACH_MULTIPLIER = 3
 
 (
     ACTION_COST,
@@ -88,14 +89,16 @@ class DroneControlGym(gym.Env):
             self.goal_pose = [
                 random.uniform(-RANGE_LIMIT / 2, RANGE_LIMIT / 2),
                 random.uniform(-RANGE_LIMIT / 2, RANGE_LIMIT / 2),
-                random.uniform(0.1, RANGE_LIMIT),
+                random.uniform(0.3, RANGE_LIMIT),
             ]
         else:
             self.goal_pose = goal_pose
 
         self.drone.geom_xpos[self.goal_id] = np.copy(self.goal_pose)  # Set the position of the point
         self.distance_to_goal = None
-        self.last_distance_to_goal = 0
+        self.last_distance_to_goal = None
+
+        self.reward_counters = {"idle": 0, "action": 0, "approach": 0, "away": 0}
 
         self.has_finished = False
         mujoco.mj_step(self.model, self.drone)
@@ -124,15 +127,16 @@ class DroneControlGym(gym.Env):
 
         # Calculate vector difference between goal and drone's current position
         vector_to_goal_world = np.array(self.goal_pose) - np.array(self.drone_position)
-        r, p, y = self.drone_rpy
-        R = self._rpy_to_rotation_matrix(r, p, y)
-        
+        drone_rot_mat = rpy_to_mat(self.drone_rpy)
+
         # Transform the goal vector from the world frame to the drone's frame
-        vector_to_goal_drone_frame = np.dot(R.T, vector_to_goal_world)  # Transpose R because we want world to drone frame
-        
+        vector_to_goal_drone_frame = np.dot(
+            np.linalg.inv(drone_rot_mat), vector_to_goal_world
+        )  # Inverse R because we want world to drone frame
+
         # Calculate distance to goal in the drone's frame
         self.distance_to_goal = np.linalg.norm(vector_to_goal_drone_frame)
-        
+
         # Normalize the vector to goal if the distance is greater than 0
         if self.distance_to_goal > 0:
             dx, dy, dz = vector_to_goal_drone_frame / self.distance_to_goal  # Normalize
@@ -140,6 +144,29 @@ class DroneControlGym(gym.Env):
             dx, dy, dz = 0.0, 0.0, 0.0  # If already at the goal
         return np.array([dx, dy, dz, self.distance_to_goal])
     
+    
+    def _rpy_to_rotation_matrix(self, roll, pitch, yaw):
+        # Convert roll, pitch, yaw to rotation matrix
+        roll, pitch, yaw = np.radians([roll, pitch, yaw])
+
+        R_x = np.array([[1, 0, 0],
+                        [0, np.cos(roll), -np.sin(roll)],
+                        [0, np.sin(roll), np.cos(roll)]])
+        
+        R_y = np.array([[np.cos(pitch), 0, np.sin(pitch)],
+                        [0, 1, 0],
+                        [-np.sin(pitch), 0, np.cos(pitch)]])
+        
+        R_z = np.array([[np.cos(yaw), -np.sin(yaw), 0],
+                        [np.sin(yaw), np.cos(yaw), 0],
+                        [0, 0, 1]])
+        
+        # The final rotation matrix is R = R_z * R_y * R_x
+        R = np.dot(R_z, np.dot(R_y, R_x))
+        
+        return R
+
+
     def _rpy_to_rotation_matrix(self, roll, pitch, yaw):
         # Convert roll, pitch, yaw to rotation matrix
         roll, pitch, yaw = np.radians([roll, pitch, yaw])
@@ -175,9 +202,11 @@ class DroneControlGym(gym.Env):
             if np.all(np.abs(self.drone_position - self.last_drone_position) < IDLE_POSITION_THRESHOLD):
                 logging.debug("drone is idle in place")
                 reward += IDLE_COST
+                self.reward_counters["idle"] += 1
             else:
                 logging.debug("drone took valid action")
                 reward += ACTION_COST
+                self.reward_counters["action"] += 1
 
                 # if drone is flipped (or collided?), return FLIPPED_REWARD
                 # REWARD = ACTION + FLIPPED
@@ -201,19 +230,22 @@ class DroneControlGym(gym.Env):
                 if not finished:
                     # Check for smooth angular motion (low angular velocity)
                     # REWARD = ACTION + SMOOTH
-                    if self.distance_to_goal < self.last_distance_to_goal:
-                        logging.debug("drone is approaching goal")
-                        reward += 3 / (self.distance_to_goal + 0.003)
-                    elif self.distance_to_goal >= self.last_distance_to_goal:
-                        logging.debug("drone is getting further from goal")
-                        reward -= 3
-                    # if np.all(np.abs(self.drone_gyro) < GYRO_SMOOTH_THRESHOLD):
-                    #     logging.debug("drone is rotating smoothly")
-                    #     reward += SMOOTH_MOTION_REWARD
-                    # # Check for smooth linear motion (low acceleration)
-                    # if np.all(np.abs(self.drone_acc) < ACC_SMOOTH_THRESHOLD):
-                    #     logging.debug("drone is moving smoothly")
-                    #     reward += SMOOTH_MOTION_REWARD
+                    if self.distance_to_goal and self.last_distance_to_goal:
+                        if self.distance_to_goal < self.last_distance_to_goal:
+                            logging.debug("drone is approaching goal")
+                            reward += APPROACH_MULTIPLIER / (self.distance_to_goal + 0.003)
+                            self.reward_counters["approach"] += 1
+                        elif self.distance_to_goal >= self.last_distance_to_goal:
+                            logging.debug("drone is getting further from goal")
+                            reward -= APPROACH_MULTIPLIER
+                            self.reward_counters["away"] += 1
+                        # if np.all(np.abs(self.drone_gyro) < GYRO_SMOOTH_THRESHOLD):
+                        #     logging.debug("drone is rotating smoothly")
+                        #     reward += SMOOTH_MOTION_REWARD
+                        # # Check for smooth linear motion (low acceleration)
+                        # if np.all(np.abs(self.drone_acc) < ACC_SMOOTH_THRESHOLD):
+                        #     logging.debug("drone is moving smoothly")
+                        #     reward += SMOOTH_MOTION_REWARD
 
             return finished, reward
 
@@ -267,7 +299,7 @@ class DroneControlGym(gym.Env):
             self.goal_pose = [
                 random.uniform(-RANGE_LIMIT / 2, RANGE_LIMIT / 2),
                 random.uniform(-RANGE_LIMIT / 2, RANGE_LIMIT / 2),
-                random.uniform(0.1, RANGE_LIMIT),
+                random.uniform(0.3, RANGE_LIMIT),
             ]
         else:
             self.goal_pose = goal_pose
@@ -289,7 +321,7 @@ class DroneControlGym(gym.Env):
         self.last_drone_position = [0.0, 0.0, 0.0]
         self.drone_rpy = None
         self.distance_to_goal = None
-        self.last_distance_to_goal = 0
+        self.last_distance_to_goal = None
         self.drone_last_ctrl = np.zeros(4)
         self.step_count = 1
         self.has_finished = False
@@ -297,6 +329,9 @@ class DroneControlGym(gym.Env):
         mujoco.mj_step(self.model, self.drone)
         self._update_drone_data_from_sim()
         self.drone_motor_thrust = np.array(self.drone.actuator_force)
+
+        self.reward_counters = {"idle": 0, "action": 0, "approach": 0, "away": 0}
+
         # Return the initial observation and goal
         combined_array = np.concatenate(
             (self.goal_attributes, self.drone_rpy, self.drone_motor_thrust, self.drone_acc, self.drone_gyro)
@@ -311,7 +346,7 @@ class DroneControlGym(gym.Env):
             f"                                  drone stepped with action   X\n"
             f"                                                           [{action[3]}] [{action[2]}]"
         )
-        self.last_goal_attributes = np.copy(self.goal_attributes)
+        self.last_distance_to_goal = self.distance_to_goal
         # using action given, pop the first motor state and append the new motor state for each motor
         for index, individual_action in enumerate(action):
             self.motor_states[index].pop(0)

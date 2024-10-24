@@ -12,3 +12,4 @@ dependencies:
     - tensorboard
     - pyparsing
     - matplotlib
+    - torch
