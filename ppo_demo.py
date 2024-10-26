@@ -243,7 +243,7 @@ agent = Agent(
     batch_size=batch_size,
     alpha=alpha,
     n_epochs=n_epochs,
-    input_dims=17,
+    input_dims=11,
 )
 start_step = 0
 if LOAD_MODEL:

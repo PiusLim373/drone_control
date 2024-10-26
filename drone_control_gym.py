@@ -211,20 +211,9 @@ class DroneControlGym(gym.Env):
                 # if drone is flipped (or collided?), return FLIPPED_REWARD
                 # REWARD = ACTION + FLIPPED
                 if abs(self.drone_rpy[0]) > ROLL_THRESHOLD or abs(self.drone_rpy[1]) > PITCH_THRESHOLD:
-                    logging.info("drone has flipped")
+                    logging.debug("drone has flipped")
                     reward += FLIPPED_REWARD
                     finished = True
-
-                # if drone is flipped (or collided?), return FLIPPED_REWARD
-                # REWARD = ACTION + OUT
-                # if (
-                #     abs(self.drone_position[0]) >= (RANGE_LIMIT / 2 + RANGE_BUFFER)
-                #     or abs(self.drone_position[1]) >= (RANGE_LIMIT / 2 + RANGE_BUFFER)
-                #     or abs(self.drone_position[2]) >= (RANGE_LIMIT + RANGE_BUFFER)
-                # ):
-                #     logging.info("drone is out of bound")
-                #     reward += OUT_OF_BOUND_REWARD
-                #     finished = True
 
                 # Apply smooth motion rewards only if not flipped or out of bounds
                 if not finished:
@@ -239,13 +228,6 @@ class DroneControlGym(gym.Env):
                             logging.debug("drone is getting further from goal")
                             reward -= APPROACH_MULTIPLIER
                             self.reward_counters["away"] += 1
-                        # if np.all(np.abs(self.drone_gyro) < GYRO_SMOOTH_THRESHOLD):
-                        #     logging.debug("drone is rotating smoothly")
-                        #     reward += SMOOTH_MOTION_REWARD
-                        # # Check for smooth linear motion (low acceleration)
-                        # if np.all(np.abs(self.drone_acc) < ACC_SMOOTH_THRESHOLD):
-                        #     logging.debug("drone is moving smoothly")
-                        #     reward += SMOOTH_MOTION_REWARD
 
             return finished, reward
 
@@ -282,7 +264,7 @@ class DroneControlGym(gym.Env):
 
     def get_all_state(self):
         combined_array = np.concatenate(
-            (self.goal_attributes, self.drone_rpy, self.drone_motor_thrust, self.drone_acc, self.drone_gyro)
+            (self.goal_attributes, self.drone_rpy, self.drone_motor_thrust)
         )
         observations = combined_array.tolist()
         return (
@@ -334,7 +316,7 @@ class DroneControlGym(gym.Env):
 
         # Return the initial observation and goal
         combined_array = np.concatenate(
-            (self.goal_attributes, self.drone_rpy, self.drone_motor_thrust, self.drone_acc, self.drone_gyro)
+            (self.goal_attributes, self.drone_rpy, self.drone_motor_thrust)
         )
         observations = combined_array.tolist()
         return observations
