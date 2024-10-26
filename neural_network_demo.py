@@ -19,7 +19,6 @@ PPO_CLIP = 0.2
 BATCH_SIZE = 5
 N_EPOCH = 5
 
-
 gym_env = DroneControlGym()
 memory = Memory(batch_size=BATCH_SIZE)
 actor = ActorNetwork(
@@ -30,7 +29,6 @@ critic = CriticNetwork(input_dims=11, learning_rate=LEARNING_RATE)  # value nn w
 # get initial states
 observation = gym_env.reset()
 print(f"Initial state: {observation}")  # initial state is a 11 element list: [dx, dy, dz, d, r, p, y, m1, m2, m3, m4]
-
 
 learning_counter = 0
 
@@ -114,12 +112,12 @@ for i in range(5):
                     new_value = critic(states)
                     new_value = torch.squeeze(new_value)
 
-                    # calculate the critic loss = (returns - new_value) ** 2
+                    # calculate the critic loss using mean square error
                     returns = advantage[batch] + values[batch]
                     critic_loss = (returns - new_value) ** 2
                     critic_loss = critic_loss.mean()
 
-                    # unified loss = actor_loss + 0.5 * critic_loss
+                    # calculate total loss
                     total_loss = actor_loss + 0.5 * critic_loss
 
                     # back progation and network update
@@ -129,8 +127,8 @@ for i in range(5):
                     actor.optimizer.step()
                     critic.optimizer.step()
             memory.clear_memory()
-
         learning_counter += 1
+
         # Print the weights of the actor network and critic network after backpropagation
         print_weights(actor, "Actor Network Weights at learning counter " + str(learning_counter))
         print_weights(critic, "Critic Network Weights at learning counter " + str(learning_counter))

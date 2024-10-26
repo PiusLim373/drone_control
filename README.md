@@ -59,7 +59,7 @@ This demo will run for 5 episodes, and for every 20 steps of data collected, the
 1. Randomly shuffle the data and group into mini-batch of 5.
 2. Calculate advantages.
 3. Calculate policy loss and value loss.
-4. Calculate unified total loss.
+4. Calculate total loss.
 5. Backward propagation and update the network.
 6. Repeat Step 2 to Step 5 five times for each mini-batch.
 7. Clear the memory and ready for the next 20 steps of data.
