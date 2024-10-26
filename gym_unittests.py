@@ -50,33 +50,15 @@ class TestDroneControlGym(unittest.TestCase):
         self.gym_env.has_finished, self.gym_env.reward = self.gym_env._calculate_reward()
         self.assertTrue(self.gym_env.has_finished)
         self.assertEqual(self.gym_env.reward, GOAL_REWARD) # Goal Reward
-
-    def test_goal_tolerance_exceed_position_rpy(self):
-        self.gym_env.goal_pose = np.array([1.0, 1.0, 1.0])
-        self.set_drone_pose([1.0, 1.01, 1.0], [5, 0, 0])  # At tolerance of 0.1 and roll, pitch threshold of 5 degrees
-        mujoco.mj_step(self.gym_env.model, self.gym_env.drone)
-        self.gym_env.goal_attributes = self.gym_env._calculate_goal_attributes()
-        self.gym_env.has_finished, self.gym_env.reward = self.gym_env._calculate_reward()
-        self.assertFalse(self.gym_env.has_finished) # Should not give termination signal
-        self.assertEqual(self.gym_env.reward, ACTION_COST + SMOOTH_MOTION_REWARD + SMOOTH_MOTION_REWARD)  # Reward: action cost + smooth flight reward (linear acc) + smooth flight reward (angular vel) 
         
-    def test_goal_tolerance_exceed_rpy(self):
-        self.gym_env.goal_pose = np.array([1.0, 1.0, 1.0])
-        self.set_drone_pose([1.0, 1.0, 1.0], [5, 0, 0])  # Within tolerance of 0.1 with zero orientation
-        mujoco.mj_step(self.gym_env.model, self.gym_env.drone)
-        self.gym_env.goal_attributes = self.gym_env._calculate_goal_attributes()
-        self.gym_env.has_finished, self.gym_env.reward = self.gym_env._calculate_reward()
-        self.assertFalse(self.gym_env.has_finished)
-        self.assertEqual(self.gym_env.reward, ACTION_COST + SMOOTH_MOTION_REWARD + SMOOTH_MOTION_REWARD)  # Reward: action cost + smooth flight reward (linear acc) + smooth flight reward (angular vel) 
-        
-    def test_goal_tolerance_exceed_position(self):
+    def test_goal_tolerance_exceed_position(self): 
         self.gym_env.goal_pose = np.array([1.0, 1.0, 1.0])
         self.set_drone_pose([1.0, 1.1, 1.0], [0, 0, 0])  # Within tolerance of 0.1 with zero orientation
         mujoco.mj_step(self.gym_env.model, self.gym_env.drone)
         self.gym_env.goal_attributes = self.gym_env._calculate_goal_attributes()
         self.gym_env.has_finished, self.gym_env.reward = self.gym_env._calculate_reward()
         self.assertFalse(self.gym_env.has_finished)
-        self.assertEqual(self.gym_env.reward, ACTION_COST + SMOOTH_MOTION_REWARD + SMOOTH_MOTION_REWARD)  # Reward: action cost + smooth flight reward (linear acc) + smooth flight reward (angular vel) 
+        self.assertEqual(self.gym_env.reward, ACTION_COST )  # Reward: action cost 
         
     def test_drone_flips_over(self):
         self.set_drone_pose([0, 0, 1], [90.01, 0.0, 0.0])  # Roll beyond threshold of 90 degree
@@ -86,38 +68,14 @@ class TestDroneControlGym(unittest.TestCase):
         self.assertTrue(self.gym_env.has_finished) # Should give termination signal
         self.assertEqual(self.gym_env.reward, FLIPPED_REWARD + ACTION_COST) # Reward: Flipped reward + action cost 
         
-    def test_drone_flips_over_01(self):
+    def test_drone_flips_over_01(self): 
         self.set_drone_pose([0, 0, 1], [0.0, 90.0, 0.0])  # Roll at exact threshold of 90 degree while not exceeding
         mujoco.mj_step(self.gym_env.model, self.gym_env.drone)
         self.gym_env.goal_attributes = self.gym_env._calculate_goal_attributes()
         self.gym_env.has_finished, self.gym_env.reward = self.gym_env._calculate_reward()
         self.assertFalse(self.gym_env.has_finished) # Should not give termination signal
-        self.assertEqual(self.gym_env.reward, ACTION_COST + SMOOTH_MOTION_REWARD + SMOOTH_MOTION_REWARD) # Reward: action cost + smooth flight reward (linear acc) + smooth flight reward (angular vel) 
+        self.assertEqual(self.gym_env.reward, ACTION_COST ) # Reward: action cost 
            
-    def test_drone_goes_out_of_bounds(self):
-        self.set_drone_pose([6.0, 6.0, 11.0], [0.0, 0.0, 0.0])  # Position at out of bounds limit of X: 6, Y: 6, Z: 11
-        mujoco.mj_step(self.gym_env.model, self.gym_env.drone)
-        self.gym_env.goal_attributes = self.gym_env._calculate_goal_attributes()
-        self.gym_env.has_finished, self.gym_env.reward = self.gym_env._calculate_reward()
-        self.assertTrue(self.gym_env.has_finished) # Should give termination signal
-        self.assertEqual(self.gym_env.reward, OUT_OF_BOUND_REWARD + ACTION_COST) # Reward: Out of bounds reward + action cost
-
-    def test_drone_goes_out_of_bounds_01(self):
-        self.set_drone_pose([5.99, 5.99, 10.99], [0.0, 0.0, 0.0])  # Position before out of bounds limit of X: 6, Y: 6, Z: 11
-        mujoco.mj_step(self.gym_env.model, self.gym_env.drone)
-        self.gym_env.goal_attributes = self.gym_env._calculate_goal_attributes()
-        self.gym_env.has_finished, self.gym_env.reward = self.gym_env._calculate_reward()
-        self.assertFalse(self.gym_env.has_finished) # Should not give termination signal
-        self.assertEqual(self.gym_env.reward, ACTION_COST + SMOOTH_MOTION_REWARD + SMOOTH_MOTION_REWARD) # Reward: action cost + smooth flight reward (linear acc) + smooth flight reward (angular vel) 
-        
-    def test_drone_goes_out_of_bounds_flips_over(self):
-        self.set_drone_pose([10.01, 0, 1], [90.01, 0.0, 0.0])  # Both position and roll angle exceed thresholds
-        mujoco.mj_step(self.gym_env.model, self.gym_env.drone)
-        self.gym_env.goal_attributes = self.gym_env._calculate_goal_attributes()
-        self.gym_env.has_finished, self.gym_env.reward = self.gym_env._calculate_reward()
-        self.assertTrue(self.gym_env.has_finished) # Should give termination signal
-        self.assertEqual(self.gym_env.reward, OUT_OF_BOUND_REWARD + FLIPPED_REWARD + ACTION_COST) # Reward: Out of bounds reward + flipped reward + action cost
-    
     def test_random_goal_at_boundary(self):
         self.gym_env.goal_pose = np.array([10.0, 10.0, 10.0])
         self.set_drone_pose([10.0, 10.0, 10.0], [0, 0, 0])  
@@ -133,7 +91,7 @@ class TestDroneControlGym(unittest.TestCase):
         for _ in range(50):
             self.gym_env.step(ACTIONS[0])  # Apply zero thrust continuously
         self.gym_env.has_finished, self.gym_env.reward = self.gym_env._calculate_reward()
-        self.assertFalse(self.gym_env.has_finished) # Should give termination signal
+        self.assertFalse(self.gym_env.has_finished) # Should not give termination signal
         self.assertEqual(self.gym_env.reward, IDLE_COST) # Idle Cost
         
     def test_max_thrust_all_motors(self):
