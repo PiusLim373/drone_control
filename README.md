@@ -49,6 +49,26 @@ python gym_unittests.py
 
 
 ## Running the Neural Network Demo (Assignment 2) 
-Stay tuned, coming soon!
+Assignment 2 is about showing a working version of the neural network that will allow subsequent program to send in some states and get the Actor and Critic network to perform some prediction.
+
+Proximal Policy Optimization (PPO) is chosen as this assignment's algorithm. Therefore, some related functions like advantages, weighted probability, policy and value losses neural_network_demo.py are included as well.  
+``` 
+python neural_network_demo.py
+```
+This demo will run for 5 episodes, and for every 20 steps of data collected, the network update will:
+1. Randomly shuffle the data and group into mini-batch of 5.
+2. Calculate advantages.
+3. Calculate policy loss and value loss.
+4. Calculate unified total loss.
+5. Backward propagation and update the network.
+6. Repeat Step 2 to Step 5 five times for each mini-batch.
+7. Clear the memory and ready for the next 20 steps of data.
+
+### Actor and Critic Network Weight (truncated) At Start
+![](asset/docs/actor_critic_weight_start.png)
+
+### Actor and Critic Network Weight (truncated) At End of 5 Episodes
+![](asset/docs/actor_critic_weight_end.png)
+
 ## Running the Learning Agent Demo (Assignment 3) 
 Stay tuned, coming soon!
