@@ -71,4 +71,14 @@ This demo will run for 5 episodes, and for every 20 steps of data collected, the
 ![](asset/docs/actor_critic_weight_end.png)
 
 ## Running the Learning Agent Demo (Assignment 3) 
-Stay tuned, coming soon!
+Assignment 3 is about showing a training agent that connects all previous assignments together.
+
+The agent is a big class that holds the two neural network created and the memory. And by running a specified amount of episodes and collecting data, the agent will send these step data to the neural networks for training.  
+``` 
+python training_agent_demo.py
+```
+This demo script will run for 1000 episodes, similar to the above neural network demo, for every 1024 step data collected, a mini batch size of 64 data will be sent to the network and run for 10epochs. On every best average score obtained and at the end of training, the weight file will be saved.
+
+:warning: The script will be rendering visualization by default, this can be disable by setting the `RENDER` flag false in the demo script, speeding up the training speed.
+
+![](asset/docs/training_agent_output.png)
