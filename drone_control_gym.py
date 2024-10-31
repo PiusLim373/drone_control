@@ -26,7 +26,7 @@ IDLE_POSITION_THRESHOLD = 0.05  # m
 GYRO_SMOOTH_THRESHOLD = 0.05  # Threshold for angular velocity (rad/s)
 ACC_SMOOTH_THRESHOLD = 0.1  # Threshold for linear acceleration (m/s^2)
 APPROACH_MULTIPLIER = 3
-
+MAX_STEP = 500
 (
     ACTION_COST,
     IDLE_COST,
@@ -228,7 +228,11 @@ class DroneControlGym(gym.Env):
                             logging.debug("drone is getting further from goal")
                             reward -= APPROACH_MULTIPLIER
                             self.reward_counters["away"] += 1
-
+                            
+            if self.step_count > MAX_STEP:
+                logging.debug("drone has reached max step")
+                finished = True
+                
             return finished, reward
 
     def get_pose(self):
