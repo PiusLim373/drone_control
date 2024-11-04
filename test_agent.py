@@ -24,11 +24,15 @@ agent = Agent(input_dims=21, action_dims=16, learning_rate=0.0003,
               discount=0.99, gae_lambda=0.95, ppo_clip=0.2, 
               batch_size=64, n_epoch=15, checkpoint_dir=CHECKPOINT_DIR)
 
+# Load model if specified
+load_level = 2  # Set the desired level here (Between 1 and 6)
+gym_env.current_level = load_level  # Use the manual level
 
 if os.path.isfile(ACTOR_CHECKPOINT) and os.path.isfile(CRITIC_CHECKPOINT):
     agent.actor.checkpoint_file = ACTOR_CHECKPOINT
     agent.critic.checkpoint_file = CRITIC_CHECKPOINT
     agent.load_models()  # Use the load_models method
+    print(f"Resuming from level {gym_env.current_level}")
 else:
     print("Starting fresh, no models loaded.")
 
