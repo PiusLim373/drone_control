@@ -12,12 +12,9 @@ from custom_utils import *
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 np.set_printoptions(suppress=True, threshold=np.inf, linewidth=np.inf)
 # Global variables
-XY_RANGE = 1
-Z_RANGE = 1
 RANGE_LIMIT = 1
 RANGE_BUFFER = 1
 RESOLUTION = 10
-GOAL_TOLERANCE = 0.3  # if the drone is within 0.5m of the goal, it is considered to have reached the goal
 FULL_THROTTLE = 7
 DRONE_MODEL_PATH = os.path.join(os.getcwd(), "asset/skydio_x2/scene.xml")
 ROLL_TARGET = 5  # degrees
@@ -64,7 +61,7 @@ ACTIONS = [
 
 
 class DroneControlGym(gym.Env):
-    def __init__(self, goal_pose=None, render=False):
+    def __init__(self, level=1, goal_pose=None, render=False):
         super(DroneControlGym, self).__init__()
         # Load the drone model and initialize the simulation
         self.model = mujoco.MjModel.from_xml_path(DRONE_MODEL_PATH)
@@ -73,6 +70,38 @@ class DroneControlGym(gym.Env):
         self.action_space = spaces.Discrete(16)
         # self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(20,), dtype=np.float32)
 
+        # Define z ranges for different levels
+        self.z_ranges = {
+            1: (0.3, 0.7),
+            2: (0.3, 1.0),
+            3: (0.3, 1.5),
+            4: (0.3, 2.5),
+            5: (0.3, 4.0),
+            6: (0.3, 7.5)
+        }
+        
+        # Define xy ranges for different levels
+        self.xy_ranges = {
+            1: 0.6,
+            2: 0.9,
+            3: 1.5,
+            4: 2.5,
+            5: 3.5,
+            6: 5  # Adjust upper limit as needed
+        }
+
+        # Define goal tolerance for different levels
+        self.tolerances = {
+            1: 0.3,
+            2: 0.25,
+            3: 0.15,
+            4: 0.1,
+            5: 0.025,
+            6: 0.01
+        }
+
+        self.current_level = level  # Track the current level
+        
         self.observation_space = spaces.Box(
             low=np.array(
                 [
@@ -213,10 +242,23 @@ class DroneControlGym(gym.Env):
         return np.array([dx, dy, dz, self.distance_to_goal])
 
     def _generate_goal(self):
+        """Randomly initialize goal pose (x, y, z) based on current level."""
+        # Decide whether to use the current level or the previous level
+        if self.current_level == 1 or random.random() < 0.6:  # 60% chance for last level
+            level_used = self.current_level - 1 if self.current_level > 1 else self.current_level
+        else:  # 40% chance for current level
+            level_used = self.current_level
+
+        # Get ranges and tolerance from the determined level
+        xy_range = self.xy_ranges[level_used]
+        z_range = self.z_ranges[level_used]
+        self.goal_tolerance = self.tolerances[level_used]
+
+        # Randomly generate x and y values within the selected xy rang
         self.goal_pose = [
-            random.uniform(-XY_RANGE / 2, XY_RANGE / 2),
-            random.uniform(-XY_RANGE / 2, XY_RANGE / 2),
-            random.uniform(0.8, Z_RANGE),
+            random.uniform(-xy_range / 2, xy_range / 2),
+            random.uniform(-xy_range / 2, xy_range / 2),
+            random.uniform(*z_range),
         ]
 
     def _calculate_reward(self):
@@ -229,7 +271,7 @@ class DroneControlGym(gym.Env):
 
         if np.all(self.last_distance_to_goal):
             # When drone is within goal zone
-            if self.distance_to_goal < GOAL_TOLERANCE:
+            if self.distance_to_goal < self.goal_tolerance:
                 self.time_in_goal += 1
                 self.reward_counters["goal"] += 1
                 reward += 20 * (self.time_in_goal)
@@ -496,6 +538,22 @@ class DroneControlGym(gym.Env):
 
         return self.get_all_state()
 
+    def increase_difficulty(self):
+        """Increase level for curriculum learning."""
+        if self.current_level < 6:  # Prevent exceeding the maximum level
+            self.current_level += 1
+            logging.info(f"Adjusted difficulty to level: {self.current_level}")
+        else:
+            logging.info("Maximum level reached. No further difficulty adjustment.")
+            
+    def decrease_difficulty(self):
+        """Decrease level for curriculum learning if performance is poor."""
+        if self.current_level > 1:  # Prevent going below level 1
+            self.current_level -= 1
+            logging.info(f"Decreased difficulty to level: {self.current_level}")
+        else:
+            logging.info("Minimum level reached. No further difficulty adjustment.")
+    
     def render(self):
         # Render for visualization, press Esc to continue
         self.viewer = mujoco_viewer.MujocoViewer(self.model, self.drone)
