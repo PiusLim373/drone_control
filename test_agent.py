@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 import os
 import numpy as np  # Import NumPy
-from drone_control_gym import *
+from new_gym import *
 from training_agent import Agent
 import torch
 
@@ -20,7 +20,7 @@ else:
 
 # Initialize environment and agent
 gym_env = DroneControlGym(render=RENDER)
-agent = Agent(input_dims=11, action_dims=16, learning_rate=0.0003, 
+agent = Agent(input_dims=21, action_dims=16, learning_rate=0.0003, 
               discount=0.99, gae_lambda=0.95, ppo_clip=0.2, 
               batch_size=64, n_epoch=15, checkpoint_dir=CHECKPOINT_DIR)
 
@@ -37,13 +37,13 @@ n_episodes = 5  # Number of episodes to run
 scores = []  # Initialize a list to store episode scores
 
 for episode in range(n_episodes):
-    observation = gym_env.reset()  # Reset the environment for a new episode
+    observation, _ = gym_env.reset()  # Reset the environment for a new episode
     done = False
     score = 0
     
     while not done:
         action, prob, val = agent.choose_action(observation)  # Choose action
-        reward, done, observation_new = gym_env.step(ACTIONS[action])  # Take a step in the environment
+        observation_new, reward, done, _, _ = gym_env.step(action)  # Take a step in the environment
         score += reward  # Accumulate score
         observation = observation_new  # Update observation for the next step
 

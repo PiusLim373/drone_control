@@ -30,6 +30,7 @@ TILT_THRESHOLD = 45  # degrees
 MAX_TIMESTEPS = 300
 MAX_IDLE_STEP = 50
 GOAL_REWARD = 1
+HOVER_REWARD = 50
 MAX_APPROACH_REWARD = 5
 AWAY_MULTIPLIER = 1
 IDLE_PENALTY = 0.1
@@ -72,22 +73,22 @@ class DroneControlGym(gym.Env):
 
         # Define z ranges for different levels
         self.z_ranges = {
-            1: (0.3, 0.7),
-            2: (0.3, 1.0),
-            3: (0.3, 1.5),
-            4: (0.3, 2.5),
-            5: (0.3, 4.0),
-            6: (0.3, 7.5)
+            1: (0.8, 1.2),
+            2: (0.8, 2),
+            3: (0.5, 2),
+            4: (0.5, 2.5),
+            5: (0.5, 4.0),
+            6: (0.5, 6)
         }
         
         # Define xy ranges for different levels
         self.xy_ranges = {
-            1: 0.6,
-            2: 0.9,
-            3: 1.5,
-            4: 2.5,
-            5: 3.5,
-            6: 5  # Adjust upper limit as needed
+            1: 1,
+            2: 1.5,
+            3: 2.5,
+            4: 4,
+            5: 6,
+            6: 8  # Adjust upper limit as needed
         }
 
         # Define goal tolerance for different levels
@@ -272,14 +273,22 @@ class DroneControlGym(gym.Env):
         if np.all(self.last_distance_to_goal):
             # When drone is within goal zone
             if self.distance_to_goal < self.goal_tolerance:
-                self.time_in_goal += 1
-                self.reward_counters["goal"] += 1
-                reward += 20 * (self.time_in_goal)
-                if self.last_distance_to_goal > self.distance_to_goal:
-                    self.reward_counters["approach"] += 1
-                    reward += min(200 * (self.last_distance_to_goal - self.distance_to_goal), 0.5)
+                if self.time_in_goal >= TIME_TARGET:
+                    logging.info("The drone has stayed in the goal for the targeted time.")
+                    self.time_in_goal =0
+                    self.reward_counters["goal"] += 1  
+                    reward += 20 * (self.time_in_goal) + 20 * HOVER_REWARD
+                    terminated = True
+                    self._generate_goal()
                 else:
-                    self.reward_counters["away"] += 1
+                    self.time_in_goal += 1
+                    self.reward_counters["goal"] += 1
+                    reward += 20 * (self.time_in_goal)
+                    if self.last_distance_to_goal > self.distance_to_goal:
+                        self.reward_counters["approach"] += 1
+                        reward += min(200 * (self.last_distance_to_goal - self.distance_to_goal), 0.5)
+                    else:
+                        self.reward_counters["away"] += 1
                     # reward += max(200 * (self.last_distance_to_goal - self.distance_to_goal), -0.5)
 
                 # if self.time_in_goal > 0:
@@ -309,6 +318,9 @@ class DroneControlGym(gym.Env):
                 # )
                 # finished = True  # Mission completed
             else:
+                if self.time_in_goal > 0:  
+                    self.time_in_goal = 0
+                    self.fail_count += 1 #prevent agent from exploiting staying in goal near to hovering limit, move away, and move back to goal again
                 # penalty for being idle unless in goal
                 if np.all(np.abs(self.drone_position - self.last_drone_position) < IDLE_POSITION_THRESHOLD):
                     pass
@@ -418,17 +430,17 @@ class DroneControlGym(gym.Env):
         return (observations, self.reward, self.terminated, self.truncated, self.reward_counters)
 
     def reset(self, seed=None, goal_pose=None):
-        global XY_RANGE, RANGE_LIMIT, Z_RANGE, GOAL_TOLERANCE, TIME_TARGET
-        if self.time_in_goal > 0:
-            self.success_count += 1
-            logging.info(f"Been in goal {self.time_in_goal / 100} seconds, regenerating next reset")
-            XY_RANGE = min(XY_RANGE * 1.1, 3)  # XY range increases
-            Z_RANGE = min(Z_RANGE * 1.01, 3)  # Z range increases
-            GOAL_TOLERANCE = max(GOAL_TOLERANCE * 0.99, 0.15)  # Goal zone get smaller
-            self._generate_goal()
-            print(
-                f"LEVEL {self.success_count}: XY_RANGE: {XY_RANGE}, Z_RANGE: {Z_RANGE}, GOAL_TOLERANCE: {GOAL_TOLERANCE}"
-            )
+        # global XY_RANGE, RANGE_LIMIT, Z_RANGE, GOAL_TOLERANCE, TIME_TARGET
+        # if self.time_in_goal > 0:
+        #     self.success_count += 1
+        #     logging.info(f"Been in goal {self.time_in_goal / 100} seconds, regenerating next reset")
+        #     XY_RANGE = min(XY_RANGE * 1.1, 3)  # XY range increases
+        #     Z_RANGE = min(Z_RANGE * 1.01, 3)  # Z range increases
+        #     GOAL_TOLERANCE = max(GOAL_TOLERANCE * 0.99, 0.15)  # Goal zone get smaller
+        #     self._generate_goal()
+        #     print(
+        #         f"LEVEL {self.success_count}: XY_RANGE: {XY_RANGE}, Z_RANGE: {Z_RANGE}, GOAL_TOLERANCE: {GOAL_TOLERANCE}"
+        #     )
 
         # Reset simulation data
         mujoco.mj_resetData(self.model, self.drone)
@@ -437,9 +449,11 @@ class DroneControlGym(gym.Env):
             pass
         else:
             self.goal_pose = goal_pose
+       
         self.drone.geom_xpos[self.goal_id] = np.copy(self.goal_pose)
 
         # Initialize variables:
+        
         self._init_vars()
         # Step the simulation once to apply the reset thrust values
         self._update_motor_thrust(is_reset=True, action=None)
@@ -461,20 +475,21 @@ class DroneControlGym(gym.Env):
             )
         )
         observations = combined_array.tolist()
-        return combined_array, self.reward_counters
+        return observations, self.reward_counters
 
     def _init_vars(self):
         self.terminated = False
         self.truncated = False
+        self.reward = 0
         self.step_count = 0
         self.time_in_goal = 0
         self.reward_counters = {"goal": 0, "approach": 0, "away": 0, "idle": 0, "altitude": 0, "tilt": 0, "spin": 0}
-        self.drone_acc = []
-        self.drone_gyro = []
-        self.drone_motor_thrust = None
+        self.drone_acc = [0, 0, 0]
+        self.drone_gyro = [0, 0, 0]
+        self.drone_motor_thrust = [0, 0, 0, 0]
         self.drone_position = self.drone.geom_xpos[self.model.body("x2").id]
         self.last_drone_position = self.drone.geom_xpos[self.model.body("x2").id]
-        self.drone_rpy = None
+        self.drone_rpy = [0 ,0, 0]
         self.goal_vector_drone_frame = None
         self.last_goal_vector_drone_frame = None
         self.last_drone_motor_thrust = None
