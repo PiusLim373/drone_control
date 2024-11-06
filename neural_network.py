@@ -59,6 +59,7 @@ class ActorNetwork(nn.Module):
     def __init__(self, n_actions, input_dims, learning_rate, fc1_dims=256, fc2_dims=256, chkpt_dir="saves"):
         super(ActorNetwork, self).__init__()
         self.checkpoint_file = os.path.join(chkpt_dir, "actor_torch_ppo.pth")
+        self.autosave_checkpoint_file = os.path.join(chkpt_dir, "autosave_actor_torch_ppo.pth")
 
         # a fully connected neural network with two hidden layer (256nodes each) with ReLU activation function
         self.actor = nn.Sequential(
@@ -72,8 +73,7 @@ class ActorNetwork(nn.Module):
 
         # adam optimizer with learning rate
         self.optimizer = optim.Adam(self.parameters(), lr=learning_rate)
-        # self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        self.device = torch.device("cpu")
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.to(self.device)
 
     def forward(self, state):
@@ -82,13 +82,16 @@ class ActorNetwork(nn.Module):
         dist = Categorical(dist)
         return dist
 
-    def save_checkpoint(self):
+    def save_checkpoint(self, autosave=False):
         # save the model state and optimizer state, for saving model
         checkpoint = {
             "model_state_dict": self.state_dict(),
             "optimizer_state_dict": self.optimizer.state_dict(),
         }
-        torch.save(checkpoint, self.checkpoint_file)
+        if autosave:
+            torch.save(checkpoint, self.autosave_checkpoint_file)
+        else:
+            torch.save(checkpoint, self.checkpoint_file)
 
     def load_checkpoint(self):
         # load the model state and optimizer state, for loading model / resuming training
@@ -102,6 +105,7 @@ class CriticNetwork(nn.Module):
     def __init__(self, input_dims, learning_rate, fc1_dims=256, fc2_dims=256, chkpt_dir="saves"):
         super(CriticNetwork, self).__init__()
         self.checkpoint_file = os.path.join(chkpt_dir, "critic_torch_ppo.pth")
+        self.autosave_checkpoint_file = os.path.join(chkpt_dir, "autosave_critic_torch_ppo.pth")
 
         # a fully connected neural network with two hidden layer (256nodes each) with ReLU activation function
         self.critic = nn.Sequential(
@@ -114,8 +118,7 @@ class CriticNetwork(nn.Module):
 
         # adam optimizer with learning rate
         self.optimizer = optim.Adam(self.parameters(), lr=learning_rate)
-        # self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        self.device = torch.device("cpu")
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.to(self.device)
 
     def forward(self, state):
@@ -123,13 +126,16 @@ class CriticNetwork(nn.Module):
         value = self.critic(state)
         return value
 
-    def save_checkpoint(self):
+    def save_checkpoint(self, autosave=False):
         # save the model state and optimizer state, for saving model
         checkpoint = {
             "model_state_dict": self.state_dict(),
             "optimizer_state_dict": self.optimizer.state_dict(),
         }
-        torch.save(checkpoint, self.checkpoint_file)
+        if autosave:
+            torch.save(checkpoint, self.autosave_checkpoint_file)
+        else:
+            torch.save(checkpoint, self.checkpoint_file)
 
     def load_checkpoint(self):
         # load the model state and optimizer state, for loading model / resuming training
