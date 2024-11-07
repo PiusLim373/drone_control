@@ -75,10 +75,25 @@ Assignment 3 is about showing a training agent that connects all previous assign
 
 The agent is a big class that holds the two neural network created and the memory. And by running a specified amount of episodes and collecting data, the agent will send these step data to the neural networks for training.  
 ``` 
+# To run training
 python training_agent_demo.py
+
+# To show tensorboard, run the following command and go to http://localhost:6006/#scalars
+tensorboard --logdir saves/ 
 ```
-This demo script will run for 1000 episodes, similar to the above neural network demo, for every 1024 step data collected, a mini batch size of 64 data will be sent to the network and run for 10epochs. On every best average score obtained and at the end of training, the weight file will be saved.
+This demo script will run for 20 episodes, similar to the above neural network demo, for every 1024 step data collected, a mini batch size of 64 data will be sent to the network and run for 10epochs. On every best average score obtained and at the end of training, the weight file will be saved in the `saves/` folder.
 
 :warning: The script will be rendering visualization by default, this can be disable by setting the `RENDER` flag false in the demo script, speeding up the training speed.
 
 ![](asset/docs/training_agent_output.png)
+
+
+To test out the trained model, the following command can be used. 
+```
+python test_agent.py
+```
+The testing script will use the model supplied and run for 5 episodes and log the rewards obtained for each episode.
+
+![](asset/docs/testing_agent_output.png)
+
+:warning: A sample trained model is included along with the submission. Feel free to change `ACTOR_MODEL` and `CRITIC_MODEL` to another weight file in the `saves/` folder.
