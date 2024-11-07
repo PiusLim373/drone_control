@@ -80,9 +80,9 @@ class DroneControlGym(gym.Env):
                     -1.0,
                     -1.0,
                     0,
-                    -90,
-                    -90,
-                    -90,
+                    -170,
+                    -170,
+                    -170,
                     0,
                     0,
                     0,
@@ -105,9 +105,9 @@ class DroneControlGym(gym.Env):
                     1.0,
                     1.0,
                     np.inf,
-                    90,
-                    90,
-                    90,
+                    170,
+                    170,
+                    170,
                     FULL_THROTTLE,
                     FULL_THROTTLE,
                     FULL_THROTTLE,
@@ -224,95 +224,106 @@ class DroneControlGym(gym.Env):
         # calculate reward based on the current state of the drone and if the drone has reached the goal
         # Check if the roll and pitch are close to zero (upright)
         reward = 0
+        r_alive = 0
+        r_goal = 0
+        r_approach = 0
+        r_away = 0
+        r_tilt = 0
+        r_spin = 0
+        r_altitute = 0
+        r_flip = 0
+        r_out = 0
+        r_ground = 0
         terminated = False
         truncated = False
 
         if np.all(self.last_distance_to_goal):
             # When drone is within goal zone
             if self.distance_to_goal < GOAL_TOLERANCE:
-                self.time_in_goal += 1
+                self.time_in_goal += 1 # consecutive time in goal
+                self.total_time_in_goal += 1 # whole episode time in goal
                 self.reward_counters["goal"] += 1
-                reward += 20 * (self.time_in_goal)
+                r_goal = 20 * self.time_in_goal
+                self.reward_sum["goal"] += r_goal
+                reward += r_goal
                 if self.last_distance_to_goal > self.distance_to_goal:
                     self.reward_counters["approach"] += 1
-                    reward += min(200 * (self.last_distance_to_goal - self.distance_to_goal), 0.5)
+                    r_approach = min(200 * (self.last_distance_to_goal - self.distance_to_goal), 1.0)
+                    reward += r_approach
                 else:
                     self.reward_counters["away"] += 1
-                    # reward += max(200 * (self.last_distance_to_goal - self.distance_to_goal), -0.5)
-
-                # if self.time_in_goal > 0:
-                #     self.success_count += 1
-                #     XY_RANGE = min(XY_RANGE * 1.1, 3)  # XY range increases
-                #     Z_RANGE = min(Z_RANGE * 1.01, 3)  # Z range increases
-                #     GOAL_TOLERANCE = max(GOAL_TOLERANCE * 0.99, 0.15)  # Goal zone get smaller
-                #     print(
-                #         f"LEVEL {self.success_count}: XY_RANGE: {XY_RANGE}, Z_RANGE: {Z_RANGE}, GOAL_TOLERANCE: {GOAL_TOLERANCE}"
-                #     )
-
-                # level up challenges after being in goal for certain time steps
-                # if self.time_in_goal >= TIME_TARGET:
-                # self.fail_count = 0
-                # logging.info("Drone has reached goal")
-                # reward += 100
-                # self.success_count += 1
-                # XY_RANGE = min(XY_RANGE * 1.1, 3)  # XY range increases
-                # Z_RANGE = min(Z_RANGE * 1.01, 3)  # Z range increases
-                # GOAL_TOLERANCE = max(GOAL_TOLERANCE * 0.99, 0.15)  # Goal zone get smaller
-                # TIME_TARGET += 1
-                # while abs(np.linalg.norm(self.goal_pose - self.drone_position)) < GOAL_TOLERANCE:
-                #     self._generate_goal()
-                # MAX_TIMESTEPS = self.step_count + (self.distance_to_goal * 200)
-                # print(
-                #     f"LEVEL {self.success_count}: XY_RANGE: {XY_RANGE}, Z_RANGE: {Z_RANGE}, GOAL_TOLERANCE: {GOAL_TOLERANCE}"
-                # )
-                # finished = True  # Mission completed
+                    r_away = max(200 * (self.last_distance_to_goal - self.distance_to_goal), -2.0)
+                    self.reward_sum["away"] += r_away
+                    reward += r_away
             else:
+                self.time_in_goal = 0 # reset once leave goal
                 # penalty for being idle unless in goal
                 if np.all(np.abs(self.drone_position - self.last_drone_position) < IDLE_POSITION_THRESHOLD):
                     pass
                 else:
-                    reward += 0.3 / (self.distance_to_goal + 0.003)
+                    # reward += 0.3 / (self.distance_to_goal + 0.003)
                     if self.last_distance_to_goal > self.distance_to_goal:
                         self.reward_counters["approach"] += 1
-                        reward += min(100 * (self.last_distance_to_goal - self.distance_to_goal), 0.5)
+                        r_approach = min(100 * (self.last_distance_to_goal - self.distance_to_goal), 0.5)
+                        self.reward_sum["approach"] += r_approach
+                        reward += r_approach
                     else:
                         self.reward_counters["away"] += 1
-                        reward += max(100 * (self.last_distance_to_goal - self.distance_to_goal), -0.5)
-                    if abs(self.drone_rpy[0]) > TILT_THRESHOLD or abs(self.drone_rpy[1]) > TILT_THRESHOLD:
-                        # Excess tilt penalty
-                        self.reward_counters["tilt"] += 1
-                        reward += max(-0.02 * (abs(self.drone_rpy[0]) + abs(self.drone_rpy[1])), -0.2)
-                    else:
-                        reward += 0.2
+                        r_away = max(100 * (self.last_distance_to_goal - self.distance_to_goal), -3.0)
+                        self.reward_sum["away"] += r_away
+                        reward += r_away
+                        
+        if abs(self.drone_rpy[0]) > TILT_THRESHOLD or abs(self.drone_rpy[1]) > TILT_THRESHOLD:
+            # Excess tilt penalty
+            self.reward_counters["tilt"] += 1
+            r_tilt = max(-0.02 * (abs(self.drone_rpy[0]) + abs(self.drone_rpy[1])), -0.2)
+            self.reward_sum["tilt"] += r_tilt
+            reward += r_tilt
+        else:
+            r_alive = 0.2
+            self.reward_sum["alive"] += r_alive
+            reward += r_alive
 
         if self.drone_position[2] < 0.1:
             # Penalty for being too near to ground
             logging.info("Drone has fallen to ground")
             self.fail_count += 1
             self.reward_counters["altitude"] += 1
-            reward -= 100
+            r_altitute = -100
+            self.reward_sum["altitude"] += r_altitute
+            reward += r_altitute
             terminated = True
         else:
             # Check for high gyro velocity
             if abs(self.drone_gyro[0]) > 10.0 or abs(self.drone_gyro[1]) > 10.0 or abs(self.drone_gyro[2]) > 5.0:
                 # logging.info("Drone is rotating too fast.")
                 self.reward_counters["spin"] += 1
-                reward += max(-0.05 * max(abs(self.drone_gyro)), -0.5)
+                r_spin = max(-0.05 * max(abs(self.drone_gyro)), -0.5)
+                self.reward_sum["spin"] += r_spin
+                reward += r_spin
             else:
                 # reward for staying alive nicely
-                reward += 1
+                r_alive = 1
+                self.reward_sum["alive"] += r_alive
+                reward += r_alive
 
         # # Check for flipping
         if abs(self.drone_rpy[0]) > ROLL_THRESHOLD or abs(self.drone_rpy[1]) > PITCH_THRESHOLD:
             logging.info("Drone has flipped.")
-            reward += -100  # Severe penalty for flipping
+            self.reward_counters["flip"] += 1
+            r_flip = -100
+            self.reward_sum["flip"] += r_flip
+            reward += r_flip  # Severe penalty for flipping
             self.fail_count += 1
             terminated = True
 
         # Check for out of bound
         if self.distance_to_goal > 5.0:
             logging.info("Drone is out of bound.")
-            reward += -100
+            self.reward_counters["out"] += 1
+            r_out = -100
+            self.reward_sum["out"] += r_out
+            reward += r_out
             self.fail_count += 1
             terminated = True
 
@@ -377,9 +388,9 @@ class DroneControlGym(gym.Env):
 
     def reset(self, seed=None, goal_pose=None):
         global XY_RANGE, RANGE_LIMIT, Z_RANGE, GOAL_TOLERANCE, TIME_TARGET
-        if self.time_in_goal > 0:
+        if self.total_time_in_goal > 0:
             self.success_count += 1
-            logging.info(f"Been in goal {self.time_in_goal / 100} seconds, regenerating next reset")
+            logging.info(f"Been in goal {self.total_time_in_goal / 100} seconds, regenerating next reset")
             XY_RANGE = min(XY_RANGE * 1.1, 3)  # XY range increases
             Z_RANGE = min(Z_RANGE * 1.01, 3)  # Z range increases
             GOAL_TOLERANCE = max(GOAL_TOLERANCE * 0.99, 0.15)  # Goal zone get smaller
@@ -426,7 +437,9 @@ class DroneControlGym(gym.Env):
         self.truncated = False
         self.step_count = 0
         self.time_in_goal = 0
-        self.reward_counters = {"goal": 0, "approach": 0, "away": 0, "idle": 0, "altitude": 0, "tilt": 0, "spin": 0}
+        self.total_time_in_goal = 0
+        self.reward_sum = {"alive": 0, "goal": 0, "approach": 0, "away": 0, "idle": 0, "altitude": 0, "tilt": 0, "spin": 0, "flip": 0, "out": 0}
+        self.reward_counters = {"goal": 0, "approach": 0, "away": 0, "idle": 0, "altitude": 0, "tilt": 0, "spin": 0, "flip": 0, "out": 0}
         self.drone_acc = []
         self.drone_gyro = []
         self.drone_motor_thrust = None
