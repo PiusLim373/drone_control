@@ -85,7 +85,7 @@ while step_count <= (N_STEPS):
     tb_writer.add_scalar("Average Last 100 Rollout Score", average_score, episode_count)
 
     print(
-        f"Eposide {episode_count} | Score: {score} | Average Last 100 Rollout Score: {average_score} | Learning Counter: {learning_counter} | Data collected: {step_count}"
+        f"Eposide {episode_count} | Current LEVEL: {gym_env.current_level} | Score: {score:.4f} | Average Last 100 Rollout Score: {average_score:.4f} | Learning Counter: {learning_counter} | Data collected: {step_count}"
     )
 
     if average_score > best_score:
