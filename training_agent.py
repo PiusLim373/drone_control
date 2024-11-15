@@ -3,7 +3,7 @@ from neural_network import *
 
 
 class Agent:
-    def __init__(self, input_dims, action_dims, learning_rate=0.0003, discount=0.99, gae_lambda=0.95, ppo_clip=0.2, batch_size=64, n_epoch=10, checkpoint_dir="saves"):
+    def __init__(self, input_dims, action_dims, learning_rate=0.0003, discount=0.99, gae_lambda=0.95, critic_loss_coeff=0.5, entropy_coeff=0.01, ppo_clip=0.2, batch_size=64, n_epoch=10, checkpoint_dir="saves"):
         self.input_dims = input_dims
         self.action_dims = action_dims
         self.learning_rate = learning_rate
@@ -13,6 +13,8 @@ class Agent:
         self.batch_size = batch_size
         self.n_epoch = n_epoch
         self.checkpoint_dir = checkpoint_dir
+        self.critic_loss_coeff = critic_loss_coeff
+        self.entropy_coeff = entropy_coeff
         
         self.actor = ActorNetwork(n_actions=self.action_dims, input_dims=self.input_dims, learning_rate=self.learning_rate, chkpt_dir=self.checkpoint_dir)
         self.critic = CriticNetwork(input_dims=self.input_dims, learning_rate=self.learning_rate, chkpt_dir=self.checkpoint_dir)
@@ -110,9 +112,12 @@ class Agent:
                 returns = advantage[batch] + values[batch]
                 critic_loss = (returns - new_value) ** 2
                 critic_loss = critic_loss.mean()
+                
+                entropy = dist.entropy().mean()
+                entropy_penalty = -self.entropy_coeff * entropy
 
                 # calculate total loss
-                total_loss = actor_loss + 0.5 * critic_loss
+                total_loss = actor_loss + self.critic_loss_coeff * critic_loss + entropy_penalty
 
                 # back progation and network update
                 self.actor.optimizer.zero_grad()

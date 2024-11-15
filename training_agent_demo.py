@@ -28,6 +28,7 @@ N_EPOCH = 20
 # N_GAMES = 20
 N_STEPS = 10000000
 CHECKPOINT_DIR = "saves/"
+AUTO_SAVE_STEP = 10000
 
 gym_env = DroneControlGym(render=RENDER)
 agent = Agent(
@@ -74,6 +75,10 @@ while step_count <= (N_STEPS):
             tb_writer.add_scalar("Total Loss", total_loss, step_count)
             # step_count = 0
             learning_counter += 1
+
+        if step_count % AUTO_SAVE_STEP == 0:
+            agent.save_models(autosave=True)
+            print(f"Autosaving model every {AUTO_SAVE_STEP}")
 
         observation = observation_new
     episode_count += 1
