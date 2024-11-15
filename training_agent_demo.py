@@ -21,6 +21,8 @@ ACTIONS_DIMS = 16
 LEARNING_RATE = 0.0003
 DISCOUNT = 0.99
 GAE_LAMBDA = 0.95
+CRITIC_LOSS_COEFF = 0.5
+ENTROPY_COEFF = 0.01
 PPO_CLIP = 0.2
 BATCH_SIZE = 64
 TRAIN_EVERY_N_STEPS = 1024
@@ -28,6 +30,7 @@ N_EPOCH = 20
 # N_GAMES = 20
 N_STEPS = 10000000
 CHECKPOINT_DIR = "saves/"
+AUTO_SAVE_STEP = 10000
 
 gym_env = DroneControlGym(render=RENDER)
 agent = Agent(
@@ -36,6 +39,8 @@ agent = Agent(
     learning_rate=LEARNING_RATE,
     discount=DISCOUNT,
     gae_lambda=GAE_LAMBDA,
+    critic_loss_coeff=CRITIC_LOSS_COEFF, 
+    entropy_coeff=ENTROPY_COEFF,
     ppo_clip=PPO_CLIP,
     batch_size=BATCH_SIZE,
     n_epoch=N_EPOCH,
@@ -74,6 +79,10 @@ while step_count <= (N_STEPS):
             tb_writer.add_scalar("Total Loss", total_loss, step_count)
             # step_count = 0
             learning_counter += 1
+
+        if step_count % AUTO_SAVE_STEP == 0:
+            agent.save_models(autosave=True)
+            print(f"Autosaving model every {AUTO_SAVE_STEP}")
 
         observation = observation_new
     episode_count += 1
