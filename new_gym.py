@@ -603,20 +603,3 @@ class DroneControlGym(gym.Env):
             self.drone.geom_xpos[self.drone_id] = np.copy(self.drone_position)
             self.viewer.render()
             
-if __name__ == "__main__":
-    env = DroneControlGym(render=True)
-    env.goal_pose = [0, 0, 1]
-    for i in range(25):
-        observation, reward, terminated, truncated, info = env.step(15)
-        print(f"terminated: {terminated}, truncated: {truncated}, reward: {reward}")
-        print(env.reward_counters)
-        print(env.reward_sum)
-        
-    for i in range(100):
-        observation, reward, terminated, truncated, info = env.step(0)
-        print(f"terminated: {terminated}, truncated: {truncated}, reward: {reward}")
-        print(env.reward_counters)
-        print(env.reward_sum)
-
-    env.viewer.close()
-    env.close()
