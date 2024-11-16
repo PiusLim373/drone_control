@@ -118,6 +118,10 @@ class DroneControlGym(gym.Env):
                     0,
                     0,
                     0,
+                    0, 
+                    0, 
+                    0, 
+                    0, 
                     -np.inf,
                     -np.inf,
                     -np.inf,
@@ -143,6 +147,10 @@ class DroneControlGym(gym.Env):
                     FULL_THROTTLE,
                     FULL_THROTTLE,
                     FULL_THROTTLE,
+                    1, 
+                    1, 
+                    1, 
+                    1, 
                     np.inf,
                     np.inf,
                     np.inf,
@@ -195,6 +203,7 @@ class DroneControlGym(gym.Env):
             for index, individual_action in enumerate(action):
                 self.motor_states[index].pop(0)
                 self.motor_states[index].append(individual_action)
+        self.motor_states_tbp = [self.motor_states[index][0] for index in range(len(self.motor_states))]
         duty_cycle = [0] * 4
         thrust = [0] * 4
         for index, individual_motor_state in enumerate(self.motor_states):
@@ -441,6 +450,7 @@ class DroneControlGym(gym.Env):
                 self.goal_attributes,
                 self.drone_rpy,
                 self.drone_motor_thrust,
+                self.motor_states_tbp,
                 self.drone_acc,
                 self.drone_gyro,
                 self.drone_linvel,
@@ -496,6 +506,7 @@ class DroneControlGym(gym.Env):
                 self.goal_attributes,
                 self.drone_rpy,
                 self.drone_motor_thrust,
+                self.motor_states_tbp,
                 self.drone_acc,
                 self.drone_gyro,
                 self.drone_linvel,
@@ -530,6 +541,7 @@ class DroneControlGym(gym.Env):
         self.drone_angvel = None
         self.last_drone_linvel = [0, 0, 0]
         self.episode_total_score = 0
+        self.motor_states_tbp = [1, 1, 1, 1]
         self.motor_states = [
             [i%2 for i in range(RESOLUTION)],
             [i%2 for i in range(RESOLUTION)],
