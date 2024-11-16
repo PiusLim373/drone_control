@@ -1,11 +1,11 @@
 import os
-from new_gym import *
+from drone_control_test_gym import *
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv
 import numpy as np
 
 # Load the saved model
-model_path = "./20241102_124610_drone_ppo/ppo_model_11200000.zip"  # Replace with your actual model filename
+model_path = "./20241116_190314_drone_ppo/ppo_model_5600000.zip"  # Replace with your actual model filename
 model = PPO.load(model_path)
 
 # Create the environment (use the same environment as training)
