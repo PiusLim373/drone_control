@@ -96,8 +96,8 @@ class DroneControlGym(gym.Env):
         self.tolerances = {
             1: 0.3,
             2: 0.25,
-            3: 0.15,
-            4: 0.1,
+            3: 0.20,
+            4: 0.15,
             5: 0.1,
             6: 0.05
         }
