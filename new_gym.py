@@ -15,6 +15,7 @@ np.set_printoptions(suppress=True, threshold=np.inf, linewidth=np.inf)
 
 RANGE_BUFFER = 1
 RESOLUTION = 10
+TIME_RESOLUTION = 0.01
 FULL_THROTTLE = 7
 DRONE_MODEL_PATH = os.path.join(os.getcwd(), "asset/skydio_x2/scene.xml")
 ROLL_TARGET = 5  # degrees
@@ -23,8 +24,6 @@ ROLL_THRESHOLD = 170  # degrees
 PITCH_THRESHOLD = 170  # degrees
 HEIGHT_LOWER_LIMIT = 0.2  # m
 IDLE_POSITION_THRESHOLD = 0.0005  # m
-GYRO_SMOOTH_THRESHOLD = 0.05  # Threshold for angular velocity (rad/s)
-ACC_SMOOTH_THRESHOLD = 0.1  # Threshold for linear acceleration (m/s^2)
 
 SCORE_TARGET_UP = 500 # Score target to increase diffculty level
 SCORE_TARGET_DOWN = 0 # Score target to decrease diffculty level
@@ -32,17 +31,15 @@ CURRICULUM_INTERVAL = 500 # Interval to adjust difficulty level
 
 TILT_THRESHOLD = 45  # degrees
 MAX_TIMESTEPS = 300
-MAX_IDLE_STEP = 50
-GOAL_REWARD = 1
-MAX_APPROACH_REWARD = 5
-AWAY_MULTIPLIER = 1
 IDLE_PENALTY = 0.1
 FLIPPED_PENALTY = -2
 GROUND_PENALTY = -10
-GOAL_ZONE_MULTIPLIER = 10000  # Scaling factor within goal zone
-APPROACH_MULTIPLIER = 5000  # Scaling factor for distance reward
+GOAL_LINVEL_MULTIPLIER = 20 # Scaling factor for linear velocity within goal zone
+GOAL_ZONE_MULTIPLIER = 1  # Scaling factor within goal zone
+APPROACH_MULTIPLIER = 1000  # Scaling factor for distance reward
 TILT_PENALTY_MULTIPLER = 0.1  # Penalty scaling for tilt (flip avoidance)
-TIME_TARGET = 10
+TIME_TARGET = 50
+COMPLETION_REWARD = 1000
 
 ACTIONS = [
     [0, 0, 0, 0],
@@ -191,12 +188,7 @@ class DroneControlGym(gym.Env):
         self.drone_rpy = np.array(rpy_angles)
         self.drone_position = np.array(self.drone.xpos[1])
         self.drone_acc = self.drone.sensordata[self.acc_index : self.acc_index + 3]  # Accelerometer (x, y, z)
-        # print(f"acc: {self.drone_acc}")
         self.drone_gyro = self.drone.sensordata[self.gyro_index : self.gyro_index + 3]  # Gyroscope (x, y, z)
-        # print(f"gyro: {self.drone_gyro}")
-
-        if np.all(self.goal_vector_drone_frame) and np.all(self.last_goal_vector_drone_frame):
-            self.drone_linvel = (self.goal_vector_drone_frame - self.last_goal_vector_drone_frame) / 0.01
 
     def _update_motor_thrust(self, is_reset=False, action=None):
         if not is_reset:
@@ -235,6 +227,10 @@ class DroneControlGym(gym.Env):
         # Transform the goal vector from the world frame to the drone's frame
         # Inverse R because we want world to drone frame
         self.goal_vector_drone_frame = np.dot(np.linalg.inv(drone_rot_mat), goal_vector_world)
+
+        # update linvel only after goal vectors are acquired        
+        if np.all(self.goal_vector_drone_frame) and np.all(self.last_goal_vector_drone_frame):
+            self.drone_linvel = (self.goal_vector_drone_frame - self.last_goal_vector_drone_frame) / TIME_RESOLUTION
 
         # Calculate distance to goal in the drone's frame
         self.distance_to_goal = np.linalg.norm(self.goal_vector_drone_frame)
@@ -280,7 +276,9 @@ class DroneControlGym(gym.Env):
         r_altitute = 0
         r_flip = 0
         r_out = 0
-        r_ground = 0
+        r_slow = 0
+        r_fast = 0
+        r_complete = 0
         terminated = False
         truncated = False
 
@@ -290,18 +288,37 @@ class DroneControlGym(gym.Env):
                 self.time_in_goal += 1 # consecutive time in goal
                 self.total_time_in_goal += 1 # whole episode time in goal
                 self.reward_counters["goal"] += 1
-                r_goal = 20 * self.time_in_goal
+                r_goal = min(GOAL_ZONE_MULTIPLIER * self.time_in_goal, 10)
                 self.reward_sum["goal"] += r_goal
                 reward += r_goal
                 if self.last_distance_to_goal > self.distance_to_goal:
                     self.reward_counters["approach"] += 1
-                    r_approach = min(200 * (self.last_distance_to_goal - self.distance_to_goal), 1.0)
+                    r_approach = min(APPROACH_MULTIPLIER * (self.last_distance_to_goal - self.distance_to_goal), 3.0)
                     reward += r_approach
                 else:
                     self.reward_counters["away"] += 1
-                    r_away = max(200 * (self.last_distance_to_goal - self.distance_to_goal), -2.0)
+                    r_away = max(APPROACH_MULTIPLIER * (self.last_distance_to_goal - self.distance_to_goal), -3.0)
                     self.reward_sum["away"] += r_away
                     reward += r_away
+                
+                normalized_linvel = np.linalg.norm(self.drone_linvel)
+                last_normalized_linvel = np.linalg.norm(self.last_drone_linvel)
+                if normalized_linvel < last_normalized_linvel:
+                    self.reward_counters["slow"] += 1
+                    r_slow = (last_normalized_linvel - normalized_linvel) * GOAL_LINVEL_MULTIPLIER
+                    self.reward_sum["slow"] += r_slow
+                    reward += r_slow
+                else:
+                    self.reward_counters["fast"] += 1
+                    r_fast = (last_normalized_linvel - normalized_linvel) * GOAL_LINVEL_MULTIPLIER
+                    self.reward_sum["fast"] += r_fast
+                    reward += r_fast
+                
+                if self.total_time_in_goal > TIME_TARGET:
+                    self.reward_sum["complete"] += COMPLETION_REWARD
+                    reward += COMPLETION_REWARD
+                    truncated = True
+                
             else:
                 self.time_in_goal = 0 # reset once leave goal
                 # penalty for being idle unless in goal
@@ -311,12 +328,12 @@ class DroneControlGym(gym.Env):
                     # reward += 0.3 / (self.distance_to_goal + 0.003)
                     if self.last_distance_to_goal > self.distance_to_goal:
                         self.reward_counters["approach"] += 1
-                        r_approach = min(100 * (self.last_distance_to_goal - self.distance_to_goal), 0.5)
+                        r_approach = min((APPROACH_MULTIPLIER/2) * (self.last_distance_to_goal - self.distance_to_goal), 3.0)
                         self.reward_sum["approach"] += r_approach
                         reward += r_approach
                     else:
                         self.reward_counters["away"] += 1
-                        r_away = max(100 * (self.last_distance_to_goal - self.distance_to_goal), -3.0)
+                        r_away = max((APPROACH_MULTIPLIER/2) * (self.last_distance_to_goal - self.distance_to_goal), -3.0)
                         self.reward_sum["away"] += r_away
                         reward += r_away
                         
@@ -494,8 +511,8 @@ class DroneControlGym(gym.Env):
         self.step_count = 0
         self.time_in_goal = 0
         self.total_time_in_goal = 0
-        self.reward_sum = {"alive": 0, "goal": 0, "approach": 0, "away": 0, "idle": 0, "altitude": 0, "tilt": 0, "spin": 0, "flip": 0, "out": 0}
-        self.reward_counters = {"goal": 0, "approach": 0, "away": 0, "idle": 0, "altitude": 0, "tilt": 0, "spin": 0, "flip": 0, "out": 0}
+        self.reward_sum = {"complete":0, "alive": 0, "goal": 0, "approach": 0, "away": 0, "idle": 0, "altitude": 0, "tilt": 0, "spin": 0, "flip": 0, "out": 0, "slow": 0, "fast": 0}  
+        self.reward_counters = {"goal": 0, "approach": 0, "away": 0, "idle": 0, "altitude": 0, "tilt": 0, "spin": 0, "flip": 0, "out": 0, "slow": 0, "fast": 0}
         self.drone_acc = []
         self.drone_gyro = []
         self.drone_motor_thrust = None
@@ -511,18 +528,13 @@ class DroneControlGym(gym.Env):
         self.last_drone_angle_from_goal = None
         self.drone_linvel = [0, 0, 0]
         self.drone_angvel = None
+        self.last_drone_linvel = [0, 0, 0]
         self.episode_total_score = 0
-        # self.motor_states = [
-        #     [0] * RESOLUTION,
-        #     [0] * RESOLUTION,
-        #     [0] * RESOLUTION,
-        #     [0] * RESOLUTION,
-        # ]
         self.motor_states = [
-            [1, 0, 1, 0, 1, 0, 1, 0, 1, 0],
-            [1, 0, 1, 0, 1, 0, 1, 0, 1, 0],
-            [1, 0, 1, 0, 1, 0, 1, 0, 1, 0],
-            [1, 0, 1, 0, 1, 0, 1, 0, 1, 0],
+            [i%2 for i in range(RESOLUTION)],
+            [i%2 for i in range(RESOLUTION)],
+            [i%2 for i in range(RESOLUTION)],
+            [i%2 for i in range(RESOLUTION)]
         ]
 
     def step(self, action):
@@ -535,9 +547,10 @@ class DroneControlGym(gym.Env):
         )
         self.last_distance_to_goal = self.distance_to_goal
         self.last_drone_angle_from_goal = self.drone_angle_from_goal
-        self.last_drone_position = np.copy(self.drone_position)
+        self.last_drone_position = self.drone_position
+        self.last_drone_linvel = self.drone_linvel
+        self.last_goal_vector_drone_frame = self.goal_vector_drone_frame
         self.last_drone_motor_thrust = self.drone_motor_thrust
-        # using action given, pop the first motor state and append the new motor state for each motor
 
         self._update_motor_thrust(is_reset=False, action=throttle_values)
 
@@ -589,3 +602,4 @@ class DroneControlGym(gym.Env):
             self.drone.geom_xpos[self.goal_id] = np.copy(self.goal_pose)
             self.drone.geom_xpos[self.drone_id] = np.copy(self.drone_position)
             self.viewer.render()
+            
