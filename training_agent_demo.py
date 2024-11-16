@@ -16,7 +16,7 @@ def print_weights(network, title):
 
 
 RENDER = False
-INPUT_DIMS = 21
+INPUT_DIMS = 25
 ACTIONS_DIMS = 16
 LEARNING_RATE = 0.0003
 DISCOUNT = 0.99

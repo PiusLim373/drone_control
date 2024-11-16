@@ -24,7 +24,7 @@ else:
 # Initialize environment and agent
 gym_env = DroneControlGym(render=RENDER)
 agent = Agent(
-    input_dims=21,
+    input_dims=25,
     action_dims=16,
     learning_rate=0.0003,
     discount=0.99,
