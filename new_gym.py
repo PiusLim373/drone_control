@@ -30,7 +30,6 @@ SCORE_TARGET_DOWN = 0 # Score target to decrease diffculty level
 CURRICULUM_INTERVAL = 500 # Interval to adjust difficulty level
 
 TILT_THRESHOLD = 45  # degrees
-MAX_TIMESTEPS = 300
 IDLE_PENALTY = 0.1
 FLIPPED_PENALTY = -2
 GROUND_PENALTY = -10
@@ -99,8 +98,18 @@ class DroneControlGym(gym.Env):
             2: 0.25,
             3: 0.15,
             4: 0.1,
-            5: 0.025,
-            6: 0.01
+            5: 0.1,
+            6: 0.05
+        }
+        
+                # Define goal tolerance for different levels
+        self.max_timesteps = {
+            1: 300,
+            2: 400,
+            3: 500,
+            4: 750,
+            5: 1000,
+            6: 3000
         }
 
 
@@ -263,6 +272,7 @@ class DroneControlGym(gym.Env):
         xy_range = self.xy_ranges[level_used]
         z_range = self.z_ranges[level_used]
         self.goal_tolerance = self.tolerances[level_used]
+        self.max_timestep = self.max_timesteps[level_used]
 
         # Randomly generate x and y values within the selected xy rang
         self.goal_pose = [
@@ -272,7 +282,7 @@ class DroneControlGym(gym.Env):
         ]
 
     def _calculate_reward(self):
-        global TIME_TARGET, MAX_TIMESTEPS
+        global TIME_TARGET
         # calculate reward based on the current state of the drone and if the drone has reached the goal
         # Check if the roll and pitch are close to zero (upright)
         reward = 0
@@ -400,7 +410,7 @@ class DroneControlGym(gym.Env):
             self.fail_count += 1
             terminated = True
 
-        if self.step_count >= MAX_TIMESTEPS:
+        if self.step_count >= self.max_timestep:
             # logging.info("Timed out")
             self.fail_count += 1
             truncated = True
