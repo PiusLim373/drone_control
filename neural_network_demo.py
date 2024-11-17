@@ -22,13 +22,13 @@ N_EPOCH = 5
 gym_env = DroneControlGym()
 memory = Memory(batch_size=BATCH_SIZE)
 actor = ActorNetwork(
-    n_actions=16, input_dims=11, learning_rate=LEARNING_RATE
+    n_actions=16, input_dims=25, learning_rate=LEARNING_RATE
 )  # policy nn with 16 actions output (4 motors boolean control combinations)
-critic = CriticNetwork(input_dims=11, learning_rate=LEARNING_RATE)  # value nn with 1 value output
+critic = CriticNetwork(input_dims=25, learning_rate=LEARNING_RATE)  # value nn with 1 value output
 
 # get initial states
-observation = gym_env.reset()
-print(f"Initial state: {observation}")  # initial state is a 11 element list: [dx, dy, dz, d, r, p, y, m1, m2, m3, m4]
+observation, info = gym_env.reset()
+print(f"Initial state: {observation}")  # initial state is a 25 element list: [dx, dy, dz, d, r, p, y, m1, m2, m3, m4]
 
 learning_counter = 0
 
@@ -51,7 +51,8 @@ for i in range(5):
         # get the prediction from critic network
         val = torch.squeeze(critic(state)).item()
 
-        reward, done, observation_new = gym_env.step(ACTIONS[action])
+        observation_new, reward, terminated, truncated, info = gym_env.step(action)
+        done = terminated or truncated
         step_count += 1
         score += reward
         memory.store_memory(state=observation, action=action, probs=prob, vals=val, reward=reward, done=done)

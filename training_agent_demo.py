@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 from torch.utils.tensorboard import SummaryWriter
-from new_gym import *
+from drone_control_gym import *
 from training_agent import *
 
 tb_writer = SummaryWriter(log_dir="saves/")

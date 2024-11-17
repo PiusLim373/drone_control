@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 import os
 import numpy as np
-from new_gym import *
+from drone_control_gym import *
 from training_agent import Agent
 import torch
 
