@@ -17,7 +17,7 @@ class SaveModelCallback(BaseCallback):
         # Check if the current step is a multiple of the save frequency
         if self.n_calls % self.save_freq == 0:
             # Save the model
-            self.model.save(f"{self.save_path}/ppo_model_{self.num_timesteps}")
+            self.model.save(f"{self.save_path}/autosave_step_{self.num_timesteps}")
             if self.verbose > 0:
                 print(f"Model saved at timestep {self.num_timesteps}")
         return True
@@ -37,13 +37,13 @@ if __name__ == "__main__":
     # env = DummyVecEnv([lambda: temp])
 
     policy_kwargs = dict(net_arch=[128, 128, 128, 128])
-    model = PPO("MlpPolicy", env, policy_kwargs=policy_kwargs, n_steps=1024, batch_size=64, n_epochs=20, verbose=1, tensorboard_log="./tensorboard_logs/")
+    model = PPO("MlpPolicy", env, policy_kwargs=policy_kwargs, n_steps=1024, batch_size=64, n_epochs=20, verbose=1, tensorboard_log="./saves/")
 
     # Set the save frequency and path
     save_freq = 100000  # Save every 100000 timesteps
-    save_path = datetime.datetime.now().strftime("%Y%m%d_%H%M%S") + "_drone_ppo"
+    save_path = os.path.join("saves", "autosave_sb_" + datetime.datetime.now().strftime("%Y%m%d_%H%M%S"))
     callback = SaveModelCallback(save_freq=save_freq, save_path=save_path, verbose=1)
 
-    model.learn(total_timesteps=16_000_000, callback=callback, tb_log_name="PPO_Quadcopter")
+    model.learn(total_timesteps=16_000_000, callback=callback, tb_log_name="sb_tensorboard_log")
     print("done")
     model.save("ppo_drone_control")
