@@ -10,8 +10,8 @@ RENDER = True
 CHECKPOINT_DIR = "saves/"
 USE_AUTOSAVE = False  # Set to True if you want to load autosave
 
-ACTOR_MODEL = "actor_torch_ppo.pth"  # Change this if you need to load different model
-CRITIC_MODEL = "critic_torch_ppo.pth"  # Change this if you need to load different model
+ACTOR_MODEL = "sample_actor_torch_ppo.pth"  # Change this if you need to load different model
+CRITIC_MODEL = "sample_critic_torch_ppo.pth"  # Change this if you need to load different model
 
 # Determine which checkpoint files to load
 if USE_AUTOSAVE:
