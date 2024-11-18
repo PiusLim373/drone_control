@@ -22,17 +22,21 @@ ROLL_TARGET = 5  # degrees
 PITCH_TARGET = 5  # degrees
 ROLL_THRESHOLD = 170  # degrees
 PITCH_THRESHOLD = 170  # degrees
-HEIGHT_LOWER_LIMIT = 0.2  # m
+FLIP_PENALTY = -100  # penalty for flipping
+TILT_MULTIPLIER = -0.02
 IDLE_POSITION_THRESHOLD = 0.0005  # m
+GYRO_X_THRESHOLD = 10.0  # degrees/s
+GYRO_Y_THRESHOLD = 10.0  # degrees/s
+GYRO_Z_THRESHOLD = 5.0  # degrees/s
+GYRO_MULTIPLER = -0.05  # penalty for high gyro velocity
+GROUND_THRESHOLD = 0.1  # m
+GROUND_PENALTY = -100   # penalty for being too near to ground
+FAIL_REGEN_COUNT = 10 # number of fails before regenerating goal
 
 TILT_THRESHOLD = 45  # degrees
-IDLE_PENALTY = 0.1
-FLIPPED_PENALTY = -2
-GROUND_PENALTY = -10
 GOAL_LINVEL_MULTIPLIER = 20 # Scaling factor for linear velocity within goal zone
 GOAL_ZONE_MULTIPLIER = 1  # Scaling factor within goal zone
 APPROACH_MULTIPLIER = 1000  # Scaling factor for distance reward
-TILT_PENALTY_MULTIPLER = 0.1  # Penalty scaling for tilt (flip avoidance)
 COMPLETION_REWARD = 1000
 
 # test gym parameters
@@ -41,8 +45,8 @@ Z_RANGE = 5
 GOAL_TOLERANCE = 0.2
 MAX_TIMESTEP = 10000
 TIME_TARGET = 100
-BOUNDARY_DISTANCE = np.linalg.norm([XY_RANGE/2, XY_RANGE/2, Z_RANGE])
-
+BOUNDARY_THRESHOLD = np.linalg.norm([XY_RANGE/2, XY_RANGE/2, Z_RANGE]) + RANGE_BUFFER
+OUT_OF_BOUND_PENALTY = -100 # penalty for being out of bound
 ACTIONS = [
     [0, 0, 0, 0],
     [0, 0, 0, 1],
@@ -298,7 +302,6 @@ class DroneControlGym(gym.Env):
                 if np.all(np.abs(self.drone_position - self.last_drone_position) < IDLE_POSITION_THRESHOLD):
                     pass
                 else:
-                    # reward += 0.3 / (self.distance_to_goal + 0.003)
                     if self.last_distance_to_goal > self.distance_to_goal:
                         self.reward_counters["approach"] += 1
                         r_approach = min((APPROACH_MULTIPLIER/2) * (self.last_distance_to_goal - self.distance_to_goal), 3.0)
@@ -313,33 +316,33 @@ class DroneControlGym(gym.Env):
         if abs(self.drone_rpy[0]) > TILT_THRESHOLD or abs(self.drone_rpy[1]) > TILT_THRESHOLD:
             # Excess tilt penalty
             self.reward_counters["tilt"] += 1
-            r_tilt = max(-0.02 * (abs(self.drone_rpy[0]) + abs(self.drone_rpy[1])), -0.2)
+            r_tilt = max(TILT_MULTIPLIER * (abs(self.drone_rpy[0]) + abs(self.drone_rpy[1])), -0.2)
             self.reward_sum["tilt"] += r_tilt
             reward += r_tilt
         else:
-            r_alive = 0.2
+            r_alive = 0.2 # flat reward for staying alive with minor tilt
             self.reward_sum["alive"] += r_alive
             reward += r_alive
 
-        if self.drone_position[2] < 0.1:
+        if self.drone_position[2] < GROUND_THRESHOLD:
             # Penalty for being too near to ground
             logging.info("Drone has fallen to ground")
             self.fail_count += 1
             self.reward_counters["altitude"] += 1
-            r_altitute = -100
+            r_altitute = GROUND_PENALTY
             self.reward_sum["altitude"] += r_altitute
             reward += r_altitute
             terminated = True
         else:
             # Check for high gyro velocity
-            if abs(self.drone_gyro[0]) > 10.0 or abs(self.drone_gyro[1]) > 10.0 or abs(self.drone_gyro[2]) > 5.0:
-                # logging.info("Drone is rotating too fast.")
+            if abs(self.drone_gyro[0]) > GYRO_X_THRESHOLD or abs(self.drone_gyro[1]) > GYRO_Y_THRESHOLD or abs(self.drone_gyro[2]) > GYRO_Z_THRESHOLD:
+                # logging.info("Drone has too high gyro velocity")
                 self.reward_counters["spin"] += 1
-                r_spin = max(-0.05 * max(abs(self.drone_gyro)), -0.5)
+                r_spin = max(GYRO_MULTIPLER * max(abs(self.drone_gyro)), -0.5)
                 self.reward_sum["spin"] += r_spin
                 reward += r_spin
             else:
-                # reward for staying alive nicely
+                # flat reward for staying alive without high gyro velocity
                 r_alive = 1
                 self.reward_sum["alive"] += r_alive
                 reward += r_alive
@@ -348,17 +351,17 @@ class DroneControlGym(gym.Env):
         if abs(self.drone_rpy[0]) > ROLL_THRESHOLD or abs(self.drone_rpy[1]) > PITCH_THRESHOLD:
             logging.info("Drone has flipped.")
             self.reward_counters["flip"] += 1
-            r_flip = -100
+            r_flip = FLIP_PENALTY
             self.reward_sum["flip"] += r_flip
             reward += r_flip  # Severe penalty for flipping
             self.fail_count += 1
             terminated = True
 
         # Check for out of bound
-        if self.distance_to_goal > BOUNDARY_DISTANCE:
+        if self.distance_to_goal > BOUNDARY_THRESHOLD:
             logging.info("Drone is out of bound.")
             self.reward_counters["out"] += 1
-            r_out = -100
+            r_out = OUT_OF_BOUND_PENALTY
             self.reward_sum["out"] += r_out
             reward += r_out
             self.fail_count += 1
@@ -370,8 +373,8 @@ class DroneControlGym(gym.Env):
             self.fail_count = 0
             
         # Regenerate goal pose if too many fails
-        if self.fail_count >= 10:
-            logging.info("Failed 10 times, regenerating goal")
+        if self.fail_count >= FAIL_REGEN_COUNT:
+            logging.info(f"Failed {FAIL_REGEN_COUNT} times, regenerating goal")
             self._generate_goal()
             self.fail_count = 0
 

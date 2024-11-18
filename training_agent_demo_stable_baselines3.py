@@ -7,6 +7,9 @@ from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.callbacks import BaseCallback
 import datetime
 
+N_STEPS = 16000000
+AUTO_SAVE_STEPS = 100000
+
 class SaveModelCallback(BaseCallback):
     def __init__(self, save_freq: int, save_path: str, verbose=0):
         super(SaveModelCallback, self).__init__(verbose)
@@ -40,10 +43,9 @@ if __name__ == "__main__":
     model = PPO("MlpPolicy", env, policy_kwargs=policy_kwargs, n_steps=1024, batch_size=64, n_epochs=20, verbose=1, tensorboard_log="./saves/")
 
     # Set the save frequency and path
-    save_freq = 100000  # Save every 100000 timesteps
     save_path = os.path.join("saves", "autosave_sb_" + datetime.datetime.now().strftime("%Y%m%d_%H%M%S"))
-    callback = SaveModelCallback(save_freq=save_freq, save_path=save_path, verbose=1)
+    callback = SaveModelCallback(save_freq=AUTO_SAVE_STEPS, save_path=save_path, verbose=1)
 
-    model.learn(total_timesteps=16_000_000, callback=callback, tb_log_name="sb_tensorboard_log")
+    model.learn(total_timesteps=N_STEPS, callback=callback, tb_log_name="sb_tensorboard_log")
     print("done")
     model.save("ppo_drone_control")

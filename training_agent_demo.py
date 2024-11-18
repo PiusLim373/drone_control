@@ -30,7 +30,7 @@ N_EPOCH = 20
 # N_GAMES = 20
 N_STEPS = 10000000
 CHECKPOINT_DIR = "saves/"
-AUTO_SAVE_STEP = 10000
+AUTO_SAVE_STEP = 100000
 
 gym_env = DroneControlGym(render=RENDER)
 agent = Agent(
