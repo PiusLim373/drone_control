@@ -79,12 +79,12 @@ class DroneControlGym(gym.Env):
         self.episode_count = 0
         # Define z ranges for different levels
         self.z_ranges = {
-            1: (0.8, 1.2),
-            2: (0.8, 2),
-            3: (0.5, 2),
-            4: (0.5, 2.5),
-            5: (0.5, 4.0),
-            6: (0.5, 6)
+            1: (1.8, 2.2),
+            2: (1.8, 2.7),
+            3: (1.0, 2.7),
+            4: (0.5, 3.0),
+            5: (0.3, 4.0),
+            6: (0.3, 5.0)
         }
         
         # Define xy ranges for different levels
@@ -288,7 +288,6 @@ class DroneControlGym(gym.Env):
         self.goal_tolerance = self.tolerances[level_used]
         self.max_timestep = self.max_timesteps[level_used]
         self.time_target = self.time_targets[level_used]   
-        print(xy_range, z_range[1])
         self.boundary_threshold = np.linalg.norm([xy_range/2, xy_range/2, z_range[1]]) + RANGE_BUFFER
         # Randomly generate x and y values within the selected xy rang
         self.goal_pose = [
