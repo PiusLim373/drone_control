@@ -14,6 +14,56 @@ conda activate me5418-drone-control
 ```
 This will create a conda environment me5418-drone-control with necessary packages installed to run the project.
 
+## Running the Learning Agent Demo (Assignment 3) 
+Assignment 3 is about showing a training agent that connects all previous assignments together.
+
+The agent is a big class that holds the two neural network created and the memory. And by running a specified amount of episodes and collecting data, the agent will send these step data to the neural networks for training.  
+``` 
+# To run training
+python training_agent_demo.py
+
+# To show tensorboard, run the following command and go to http://localhost:6006/#scalars
+tensorboard --logdir saves/ 
+```
+This demo script will run for 20 episodes, similar to the above neural network demo, for every 1024 step data collected, a mini batch size of 64 data will be sent to the network and run for 10epochs. On every best average score obtained and at the end of training, the weight file will be saved in the `saves/` folder.
+
+:warning: The script will be rendering visualization by default, this can be disable by setting the `RENDER` flag false in the demo script, speeding up the training speed.
+
+![](asset/docs/training_agent_output.png)
+
+
+To test out the trained model, the following command can be used. 
+```
+python test_agent.py
+```
+The testing script will use the model supplied and run for 5 episodes and log the rewards obtained for each episode.
+
+![](asset/docs/testing_agent_output.png)
+
+:warning: A sample trained model is included along with the submission. Feel free to change `ACTOR_MODEL` and `CRITIC_MODEL` to another weight file in the `saves/` folder.
+
+## Running the Neural Network Demo (Assignment 2) 
+Assignment 2 is about showing a working version of the neural network that will allow subsequent program to send in some states and get the Actor and Critic network to perform some prediction.
+
+Proximal Policy Optimization (PPO) is chosen as this assignment's algorithm. Therefore, some related functions like advantages, weighted probability, policy and value losses neural_network_demo.py are included as well.  
+``` 
+python neural_network_demo.py
+```
+This demo will run for 5 episodes, and for every 20 steps of data collected, the network update will:
+1. Randomly shuffle the data and group into mini-batch of 5.
+2. Calculate advantages.
+3. Calculate policy loss and value loss.
+4. Calculate total loss.
+5. Backward propagation and update the network.
+6. Repeat Step 2 to Step 5 five times for each mini-batch.
+7. Clear the memory and ready for the next 20 steps of data.
+
+### Actor and Critic Network Weight (truncated) At Start
+![](asset/docs/actor_critic_weight_start.png)
+
+### Actor and Critic Network Weight (truncated) At End of 5 Episodes
+![](asset/docs/actor_critic_weight_end.png)
+
 ## Running the Gym Environment Demo (Assignment 1)
 Assignment 1 is about showing a working version of the gym environment that will allow subsequent program to call and step through the environment with specific action and get some state data in return.
 ``` 
@@ -46,54 +96,3 @@ Reset the environment, spawn the quadcopter and wait for it to reach a stable st
 ```
 python gym_unittests.py
 ```
-
-
-## Running the Neural Network Demo (Assignment 2) 
-Assignment 2 is about showing a working version of the neural network that will allow subsequent program to send in some states and get the Actor and Critic network to perform some prediction.
-
-Proximal Policy Optimization (PPO) is chosen as this assignment's algorithm. Therefore, some related functions like advantages, weighted probability, policy and value losses neural_network_demo.py are included as well.  
-``` 
-python neural_network_demo.py
-```
-This demo will run for 5 episodes, and for every 20 steps of data collected, the network update will:
-1. Randomly shuffle the data and group into mini-batch of 5.
-2. Calculate advantages.
-3. Calculate policy loss and value loss.
-4. Calculate total loss.
-5. Backward propagation and update the network.
-6. Repeat Step 2 to Step 5 five times for each mini-batch.
-7. Clear the memory and ready for the next 20 steps of data.
-
-### Actor and Critic Network Weight (truncated) At Start
-![](asset/docs/actor_critic_weight_start.png)
-
-### Actor and Critic Network Weight (truncated) At End of 5 Episodes
-![](asset/docs/actor_critic_weight_end.png)
-
-## Running the Learning Agent Demo (Assignment 3) 
-Assignment 3 is about showing a training agent that connects all previous assignments together.
-
-The agent is a big class that holds the two neural network created and the memory. And by running a specified amount of episodes and collecting data, the agent will send these step data to the neural networks for training.  
-``` 
-# To run training
-python training_agent_demo.py
-
-# To show tensorboard, run the following command and go to http://localhost:6006/#scalars
-tensorboard --logdir saves/ 
-```
-This demo script will run for 20 episodes, similar to the above neural network demo, for every 1024 step data collected, a mini batch size of 64 data will be sent to the network and run for 10epochs. On every best average score obtained and at the end of training, the weight file will be saved in the `saves/` folder.
-
-:warning: The script will be rendering visualization by default, this can be disable by setting the `RENDER` flag false in the demo script, speeding up the training speed.
-
-![](asset/docs/training_agent_output.png)
-
-
-To test out the trained model, the following command can be used. 
-```
-python test_agent.py
-```
-The testing script will use the model supplied and run for 5 episodes and log the rewards obtained for each episode.
-
-![](asset/docs/testing_agent_output.png)
-
-:warning: A sample trained model is included along with the submission. Feel free to change `ACTOR_MODEL` and `CRITIC_MODEL` to another weight file in the `saves/` folder.
