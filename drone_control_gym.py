@@ -79,7 +79,7 @@ class DroneControlGym(gym.Env):
         self.episode_count = 0
         # Define z ranges for different levels
         self.z_ranges = {
-            1: (1.8, 2.0),
+            1: (1.8, 2.2),
             2: (1.8, 2.7),
             3: (1.0, 2.7),
             4: (0.5, 3.0),
