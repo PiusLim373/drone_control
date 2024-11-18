@@ -8,7 +8,7 @@ import torch
 # Configuration
 RENDER = True
 CHECKPOINT_DIR = "saves/"
-USE_AUTOSAVE = False  # Set to True if you want to load autosave
+USE_AUTOSAVE = True  # Set to True if you want to load autosave
 
 ACTOR_MODEL = "sample_actor_torch_ppo.pth"  # Change this if you need to load different model
 CRITIC_MODEL = "sample_critic_torch_ppo.pth"  # Change this if you need to load different model
