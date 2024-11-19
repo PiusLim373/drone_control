@@ -40,8 +40,8 @@ APPROACH_MULTIPLIER = 1000  # Scaling factor for distance reward
 COMPLETION_REWARD = 1000
 
 # test gym parameters
-XY_RANGE = 5
-Z_RANGE = 5
+XY_RANGE = 2.5
+Z_RANGE = 2.5
 GOAL_TOLERANCE = 0.2
 MAX_TIMESTEP = 10000
 TIME_TARGET = 100
@@ -238,7 +238,7 @@ class DroneControlGym(gym.Env):
         self.goal_pose = [
             random.uniform(-xy_range / 2, xy_range / 2),
             random.uniform(-xy_range / 2, xy_range / 2),
-            random.uniform(0.5, z_range),
+            random.uniform(1.0, z_range),
         ]
 
     def _calculate_reward(self):
