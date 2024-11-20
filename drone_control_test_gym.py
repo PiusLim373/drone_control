@@ -291,9 +291,10 @@ class DroneControlGym(gym.Env):
                     self.reward_sum["fast"] += r_fast
                     reward += r_fast
                 
-                if self.total_time_in_goal > self.time_target:
+                if self.time_in_goal > self.time_target:
                     self.reward_sum["complete"] += COMPLETION_REWARD
                     reward += COMPLETION_REWARD
+                    self.time_in_goal = 0
                     self._generate_goal()
                 
             else:

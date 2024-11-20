@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 import os
 import numpy as np
-from drone_control_gym import *
+from drone_control_test_gym import *
 from training_agent import Agent
 import torch
 
@@ -41,11 +41,14 @@ if os.path.isfile(ACTOR_CHECKPOINT) and os.path.isfile(CRITIC_CHECKPOINT):
     agent.actor.checkpoint_file = ACTOR_CHECKPOINT
     agent.critic.checkpoint_file = CRITIC_CHECKPOINT
     agent.load_models()  # Use the load_models method
+    agent.actor.eval()  # Set the actor model to evaluation mode
+    agent.critic.eval()  # Set the actor model to evaluation mode
+    
 else:
     print("Starting fresh, no models loaded.")
 
 # Testing the agent
-n_episodes = 5  # Number of episodes to run
+n_episodes = 10  # Number of episodes to run
 scores = []  # Initialize a list to store episode scores
 
 for episode in range(n_episodes):
