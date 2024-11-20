@@ -4,7 +4,6 @@ channels:
 dependencies:
   - python=3.8
   - pip:
-    - gym
     - mujoco
     - mujoco-python-viewer
     - numpy
@@ -13,3 +12,5 @@ dependencies:
     - pyparsing
     - matplotlib
     - torch
+    - gymnasium
+    - stable_baselines3

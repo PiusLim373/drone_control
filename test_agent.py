@@ -1,14 +1,14 @@
 #!/usr/bin/python3
 import os
 import numpy as np
-from drone_control_gym import *
+from drone_control_test_gym import *
 from training_agent import Agent
 import torch
 
 # Configuration
 RENDER = True
 CHECKPOINT_DIR = "saves/"
-USE_AUTOSAVE = False  # Set to True if you want to load autosave
+USE_AUTOSAVE = True  # Set to True if you want to load autosave
 
 ACTOR_MODEL = "sample_actor_torch_ppo.pth"  # Change this if you need to load different model
 CRITIC_MODEL = "sample_critic_torch_ppo.pth"  # Change this if you need to load different model
@@ -24,11 +24,13 @@ else:
 # Initialize environment and agent
 gym_env = DroneControlGym(render=RENDER)
 agent = Agent(
-    input_dims=11,
+    input_dims=25,
     action_dims=16,
     learning_rate=0.0003,
     discount=0.99,
     gae_lambda=0.95,
+    critic_loss_coeff=0.5, 
+    entropy_coeff=0.01,
     ppo_clip=0.2,
     batch_size=64,
     n_epoch=15,
@@ -39,21 +41,25 @@ if os.path.isfile(ACTOR_CHECKPOINT) and os.path.isfile(CRITIC_CHECKPOINT):
     agent.actor.checkpoint_file = ACTOR_CHECKPOINT
     agent.critic.checkpoint_file = CRITIC_CHECKPOINT
     agent.load_models()  # Use the load_models method
+    agent.actor.eval()  # Set the actor model to evaluation mode
+    agent.critic.eval()  # Set the actor model to evaluation mode
+    
 else:
     print("Starting fresh, no models loaded.")
 
 # Testing the agent
-n_episodes = 5  # Number of episodes to run
+n_episodes = 10  # Number of episodes to run
 scores = []  # Initialize a list to store episode scores
 
 for episode in range(n_episodes):
-    observation = gym_env.reset()  # Reset the environment for a new episode
+    observation, info = gym_env.reset()  # Reset the environment for a new episode
     done = False
     score = 0
 
     while not done:
         action, prob, val = agent.choose_action(observation)  # Choose action
-        reward, done, observation_new = gym_env.step(ACTIONS[action])  # Take a step in the environment
+        observation_new, reward, terminated, truncated, info = gym_env.step(action)
+        done = terminated or truncated
         score += reward  # Accumulate score
         observation = observation_new  # Update observation for the next step
 
