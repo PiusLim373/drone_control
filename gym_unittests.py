@@ -92,7 +92,7 @@ class TestDroneControlGym(unittest.TestCase):
         self.assertEqual(self.gym_env.reward, expected_reward)
         
     def test_drone_flips_over(self):
-        """Test if the drone flips when roll exceeds threshold (90 degrees)."""
+        """Test if the drone flips when roll exceeds threshold (170 degrees)."""
         self.set_drone_pose([1.0, 1.0, 1.0], [170.01, 0.0, 0.0])  # Roll beyond 170 degrees threshold
         # Step the simulation
         mujoco.mj_step(self.gym_env.model, self.gym_env.drone)
@@ -109,8 +109,8 @@ class TestDroneControlGym(unittest.TestCase):
         self.assertEqual(self.gym_env.reward, expected_reward)  
 
     def test_drone_flips_over_01(self):
-        """Test if the drone remains stable at roll threshold (90 degrees)."""
-        self.set_drone_pose([1.0, 1.0, 1.0], [0.0, 170.0, 0.0])  # Roll exactly at 90 degrees threshold
+        """Test if the drone remains alive at roll threshold (170 degrees)."""
+        self.set_drone_pose([1.0, 1.0, 1.0], [0.0, 170.0, 0.0])  # Roll exactly at 170 degrees threshold
         # Step the simulation
         mujoco.mj_step(self.gym_env.model, self.gym_env.drone)
         # Update goal attributes and calculate rewards
@@ -161,7 +161,7 @@ class TestDroneControlGym(unittest.TestCase):
     
     def test_drone_fallen(self):
         """Test if the drone terminates when it fallen to the ground."""
-        self.set_drone_pose([1.0, 1.0, 0.09], [0.0, 0.0, 0.0])  # Fallen to the ground
+        self.set_drone_pose([1.0, 1.0, 0.09], [0.0, 0.0, 0.0])  # Fallen to the ground (< 0.1m)
         mujoco.mj_step(self.gym_env.model, self.gym_env.drone)
         # Update goal attributes and calculate rewards
         self.gym_env.goal_attributes = self.gym_env._calculate_goal_attributes()
