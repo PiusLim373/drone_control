@@ -18,17 +18,7 @@ This will create a conda environment me5418-drone-control with necessary package
 ### Training
 There are two version of training agents method provided:
 
-#### 1. Stable Baselines3 (Recommended)
-```
-# To run training
-python training_agent_demo_stable_baselines3.py
-
-# To show tensorboard, run the following command and go to http://localhost:6006/#scalars
-tensorboard --logdir saves/ 
-```
-![](asset/docs/training_agent_sb_output.png)
-
-#### 2. Custom Training Agent Implemented by The Project Group
+#### 1. Custom Training Agent Implemented by The Project Group
 ```
 # To run training
 python training_agent_demo.py
@@ -38,26 +28,38 @@ tensorboard --logdir saves/
 ```
 ![](asset/docs/training_agent_output.png)
 
+#### 2. Stable Baselines3 (Recommended)
+```
+# To run training
+python training_agent_demo_stable_baselines3.py
+
+# To show tensorboard, run the following command and go to http://localhost:6006/#scalars
+tensorboard --logdir saves/ 
+```
+![](asset/docs/training_agent_sb_output.png)
+
+
 :warning: The training will run for 16mil steps and autosave every 10k steps in the `saves/` folder by default, change the `N_STEPS` and `AUTO_SAVE_STEP` based on your needs.
 
 ### Testing
 After the training is done, saved model in the `saves/` folder can be loaded and test. Similar to training, there are two versions of test and two sample models provided for each agent.
 
-#### 1. Stable Baselines3 (Recommended)
-```
-python test_agent_stable_baselines3.py
-```
-
-#### 2. Custom Training Agent Implemented by The Project Group
+#### 1. Custom Training Agent Implemented by The Project Group
 ```
 python test_agent.py
+```
+
+#### 2. Stable Baselines3 (Recommended)
+```
+python test_agent_stable_baselines3.py
 ```
 
 :warning: The test program will use the sample model provided by default, change the `MODEL` to use another model. 
 
 :warning: When the test program is run, the drone will be spawn in a continuous environment where goal will get updated whenever reached and environment will only be reset when drone is flipped, dropped to ground or out of bound. This test environment will show the full capability of the trained agent.
 
-
+### Video
+[![Drone Control Group 33](https://img.youtube.com/vi/by-sKn-rrAY/0.jpg)](https://www.youtube.com/watch?v=by-sKn-rrAY&feature=youtu.be)
 
 ## Past Assigment
 ### Running the Learning Agent Demo (Assignment 3) 
